@@ -50,7 +50,7 @@ class NewsItem:
 
     def summary(self) -> str:
         return (
-            f"Web: \"{self.title}\" — {self.snippet[:200]}... "
+            f"Web [{self.source_subject}]: \"{self.title}\" — {self.snippet[:200]}... "
             f"({self.url})"
         )
 

@@ -160,7 +160,7 @@ STEP 8 — WRITE THE POST:
   - First line: the chosen TITLE wrapped in **bold**.
   - Voice: write exactly like you speak. Short sentences. Natural pauses. Fragments are fine. Contractions (don't, can't, I've). Read it out loud — if it sounds like an essay, rewrite it.
   - Absorb research insights. Never name-drop individuals.
-  - Back claims with evidence: when you cite a fact or statistic from web research, include the URL. All links MUST go at the END of the post, each on its own new line. Never inline links mid-paragraph. One or two links max. Real sources only, never invented.
+  - Back claims with evidence: when you cite a fact or statistic from web research, include the URL. All links MUST go at the END of the post, each on its own new line. Never inline links mid-paragraph. One or two links max. Real sources only, never invented. ONLY link articles whose source_subject matches the subject you chose — never link an article from a different subject.
   - End with a concrete CTA. No fake links or downloads.
   - Length: 1200-1800 chars.
 
@@ -322,6 +322,18 @@ Never name-drop."""
             ).strip()
 
         post = _format_for_linkedin(raw)
+
+        # Validate URLs: only keep links that exist in the web research
+        if news_items:
+            valid_urls = {n.url for n in news_items if n.url}
+            url_pattern = re.compile(r'https?://[^\s<>"\']+')
+            def _filter_urls(text: str) -> str:
+                def replace(match):
+                    url = match.group(0).rstrip(".,")
+                    return url if url in valid_urls else ""
+                return url_pattern.sub(replace, text)
+            post = _filter_urls(post)
+
         return post, subject_picked
     except Exception as e:
         raise RuntimeError(f"LLM generation failed: {e}") from e
