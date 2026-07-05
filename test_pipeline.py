@@ -112,7 +112,7 @@ def main() -> int:
     hr("2/3 GENERATION")
     try:
         start = time.time()
-        from db import get_selection_balance
+        from src.db import get_selection_balance
         mode = get_selection_balance()
         post, _chosen = generate(
             youtube_videos=yt,

@@ -337,6 +337,21 @@ Never name-drop."""
 
         post = _format_for_linkedin(raw)
 
+        # If the model forgot to include hashtags in the post body, add them
+        # from the HASHTAGS CHOSEN metadata line
+        if "#" not in post and hashtags_reasoning:
+            # Extract #tag-like words from the reasoning
+            tag_words = re.findall(r"#\w+", hashtags_reasoning)
+            if tag_words:
+                post = post.rstrip() + "\n\n" + " ".join(tag_words)
+            else:
+                # Fallback: extract capitalized words as potential tags
+                words = re.findall(r"[A-Z][a-z]+[A-Z]\w*|[A-Z][a-z]+", hashtags_reasoning)
+                potential = [w for w in words if len(w) > 5 and w.lower() not in {"Chosen", "Hashtags"}]
+                if potential:
+                    tags = " ".join(f"#{w}" for w in potential[:6])
+                    post = post.rstrip() + "\n\n" + tags
+
         # Validate URLs: only keep links that are both from matching subject AND relevant to the post content
         if news_items:
             # Find which original subjects relate to the chosen subject
@@ -370,14 +385,30 @@ Never name-drop."""
                 if len(overlap) >= 3:
                     valid_urls.add(n.url)
 
-            # Strip any URL in the post that isn't relevant
+            # Strip any URL in the post that isn't relevant, AND remove the dangling
+            # line that referenced it (e.g., "Review the data here:" with no link)
             url_pattern = re.compile(r'https?://[^\s<>"\']+')
-            def _filter_urls(text: str) -> str:
-                def replace(match):
-                    url = match.group(0).rstrip(".,")
-                    return url if url in valid_urls else ""
-                return url_pattern.sub(replace, text)
-            post = _filter_urls(post)
+            lines = post.split("\n")
+            filtered_lines = []
+            for line in lines:
+                urls_in_line = url_pattern.findall(line)
+                if urls_in_line:
+                    # Replace only invalid URLs, keep valid ones
+                    def _replace_url(m):
+                        url = m.group(0).rstrip(".,")
+                        return url if url in valid_urls else ""
+                    new_line = url_pattern.sub(_replace_url, line)
+                    # If all URLs were stripped and line is now just a reference
+                    # to deleted links (short line ending with ":"), skip it
+                    stripped = new_line.strip()
+                    if not url_pattern.search(new_line) and (
+                        len(stripped) < 60 and stripped.rstrip(".").endswith(":") or
+                        stripped.lower().rstrip(".") in {"link", "source", "reference", "here"}
+                    ):
+                        continue  # drop the dangling "Review here:" line
+                    line = new_line
+                filtered_lines.append(line)
+            post = "\n".join(filtered_lines)
 
         return post, subject_picked
     except Exception as e:
