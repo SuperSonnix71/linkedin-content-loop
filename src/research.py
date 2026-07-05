@@ -76,6 +76,7 @@ class ResearchResult:
     reddit_posts: list[RedditItem] = field(default_factory=list)
     twitter_posts: list[TwitterItem] = field(default_factory=list)
     news_items: list[NewsItem] = field(default_factory=list)
+    channel_insights: list[dict] = field(default_factory=list)
 
 
 def _search_youtube(query: str, max_results: int) -> list[VideoItem]:
@@ -392,6 +393,7 @@ def run(
     subreddits = reddit_config.get("subreddits", [])
 
     videos: list[VideoItem] = []
+    channel_insights: list[dict] = []
 
     # Fetch from specific channels if configured
     if channels:
@@ -437,6 +439,21 @@ def run(
                 print(f"      Auto-subjects from {channel_url}: {chan_subjects}")
                 subjects = list(subjects) + chan_subjects
 
+            # Build channel insights: top videos with their own subject tags
+            chan_name = channel_url.rsplit("/", 1)[-1] if "/" in channel_url else channel_url
+            top_ids = ", ".join(f"{v.title} ({v.views:,} views)" for v in chan_vids[:5])
+            # Determine best topic tag for this channel (use highest-count word that overlaps with video titles)
+            topic_tag = chan_subjects[0] if chan_subjects else chan_name
+            channel_insights.append({
+                "channel": chan_name,
+                "topic_tag": topic_tag,
+                "videos": top_ids,
+                "count": len(chan_vids),
+            })
+            # Retro-tag channel videos with their topic so they show up under a real subject
+            for v in chan_vids:
+                v.source_subject = topic_tag
+
     # Also search by subject keywords
     for subject in subjects:
         subject_videos = _search_youtube(subject, max_videos)
@@ -470,4 +487,5 @@ def run(
         reddit_posts=_fetch_reddit(subreddits, max_reddit),
         twitter_posts=twitter_posts,
         news_items=news_items,
+        channel_insights=channel_insights,
     )

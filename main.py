@@ -104,6 +104,7 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
             ai_config=ai_config,
             skip_subjects=skip_subjects,
             selection_mode=selection_mode,
+            channel_insights=result.channel_insights,
         )
     except Exception as e:
         print(f"[!] Generation failed: {e}")

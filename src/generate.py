@@ -51,6 +51,7 @@ def generate(
     ai_config: dict,
     skip_subjects: list[str] | None = None,
     selection_mode: str = "insight",
+    channel_insights: list[dict] | None = None,
 ) -> tuple[str, str]:
     client = OpenAI(base_url=ai_config["base_url"], api_key=ai_config["api_key"])
     model = ai_config["model"]
@@ -89,6 +90,15 @@ def generate(
     reddit_section = "\n".join(reddit_list)
     twitter_section = "\n".join(twitter_list)
     news_section = "\n".join(news_list)
+
+    # Channel insights: top videos from each subscribed channel
+    channel_section = ""
+    if channel_insights:
+        ci_lines = []
+        for ci in channel_insights:
+            ci_lines.append(f"  {ci['channel']} [{ci['topic_tag']}] ({ci['count']} videos): {ci['videos']}")
+        channel_section = "\n".join(ci_lines)
+        print(f"      Channels: {', '.join(ci['channel'] for ci in channel_insights)}")
 
     volume_lines = []
     for name, stats in sorted(subject_stats.items(), key=lambda x: x[1]["total_views"] + x[1]["reddit_posts"] * 10000, reverse=True):
@@ -176,6 +186,9 @@ FORMATTING:
 Tone: {tone}. Style: {style}. Language: {language}."""
 
     user_prompt = f"""Research findings:
+
+CHANNEL INSIGHTS (top videos from subscribed creators — these may contain valuable niche content not captured by broad keyword search):
+{channel_section}
 
 RESEARCH VOLUME BY SUBJECT:
 {volume_summary}

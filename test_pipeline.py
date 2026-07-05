@@ -121,6 +121,7 @@ def main() -> int:
             content_config=config.get("content", {}),
             ai_config=ai_config,
             selection_mode="insight",
+            channel_insights=result.channel_insights,
         )
         elapsed = time.time() - start
         print(f"  Generated in {elapsed:.1f}s")
