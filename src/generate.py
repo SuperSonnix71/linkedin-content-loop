@@ -168,11 +168,25 @@ Pick the best one.
 
 STEP 8 — WRITE THE POST:
   - First line: the chosen TITLE wrapped in **bold**.
-  - Voice: write exactly like you speak. Short sentences. Natural pauses. Fragments are fine. Contractions (don't, can't, I've). Read it out loud — if it sounds like an essay, rewrite it.
+  - Voice: write exactly like you talk. Text a friend about something that pisses you off or blows your mind. Short punchy sentences. Fragments. Contractions everywhere (don't, can't, I've, it's, they're, gonna, kinda, wanna). If a sentence sounds like it belongs in a white paper, delete it.
   - Absorb research insights. Never name-drop individuals.
-  - Back claims with evidence: when you cite a fact or statistic from web research, include the URL. All links MUST go at the END of the post, each on its own new line. Never inline links mid-paragraph. One or two links max. Real sources only, never invented. ONLY link articles whose source_subject matches the subject you chose — never link an article from a different subject.
-  - End with a concrete CTA. No fake links or downloads.
+  - Back claims with evidence. YOU MUST include at least one link from the web research. Links go at the END of the post, each on its own line. Never inline links. Real sources only.
   - Length: 1200-1800 chars.
+
+ANTI-AI WRITING RULES (break these and the post fails):
+  • No "The [noun] is [adjective]" sentence openers — this is the #1 AI tell. Start sentences with "I", "You", "We", actual verbs, or just jump in.
+  • No compare/contrast structures: "While X, Y...", "On one hand...", "However,..." — sound like an AI essay, not a human.
+  • No "Here's what you need to do" or "Here's how to..." preambles before bullet points. Just drop the bullets.
+  • No perfect parallel structure in lists. If every bullet starts with the same part of speech, it sounds corporate.
+  • No transitions: "Furthermore,", "Moreover,", "Additionally,", "In conclusion,", "To summarize,"
+  • Never use the word "stark" — AI loves this word.
+  • Never use "reality", "landscape", "ecosystem", "leverage", "synergy", "optimization" — corporate/AI garbage.
+  • No balanced "here's both sides" structure. Pick a lane. Be opinionated. Raw. You're a real person with a real take, not a diplomat.
+  • Vary sentence length HARD. A 3-word sentence. Then a 20-word one. Then a fragment. Then a long one. Predictable rhythm = AI.
+  • Start a sentence with "And" or "But" or "So" or "Because" — humans do this, AI doesn't.
+  • Use can't/don't/won't instead of cannot/do not/will not. Always.
+
+FINAL CHECK: Read your post out loud. If it sounds smooth and polished like a LinkedIn influencer wrote it, start over. If it sounds like you're ranting to a friend over coffee, ship it.
 
 FORMATTING:
   - **bold** for 2-4 key phrases. Also use **bold** for any transitional phrase that introduces a section or bullet list — the phrase alone in bold on its own line, then the content in regular text below.

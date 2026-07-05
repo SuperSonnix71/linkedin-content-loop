@@ -80,8 +80,8 @@ reddit:
 
 # --- Post content instructions ---
 content:
-  tone: "conversational, like you're talking to a smart friend — direct, casual, no corporate speak"
-  style: "engaging, personal, opinionated, raw — write like a real person speaking, not a brand. Short punchy sentences. Fragments are fine. Contractions are fine. Say I. Be human."
+  tone: "raw, direct, opinionated — like you're ranting to a friend, not writing a post. No polished sentences. No corporate voice. Sound human."
+  style: "text-a-friend energy. Short punchy lines. Fragments. Contractions everywhere. Vary sentence length wildly. Start sentences with And/But/So/Because. No transitions. No balanced takes — pick a side. Sound like you actually believe what you're saying."
   language: "English"
   max_characters: 3000
   custom_instructions: |
@@ -90,7 +90,7 @@ content:
     - If risks dominate: explain why they matter, with evidence
     - If positives dominate: explain why the upside is real, with evidence
     - Use bullet points for actionable steps (not dense paragraphs)
-    - The CTA must be something the reader can do immediately
+    - YOU MUST include at least one link from the web research
     - Links: only to news articles, official docs, or research papers for fact-checking. Never link to YouTube, Twitter, or any individual creator's content
     - Never use dashes or hyphens in the post text
 
