@@ -1,0 +1,8 @@
+.env
+.venv/
+browser-profile/
+post_log.json
+__pycache__/
+*.pyc
+.DS_Store
+.ruff_cache/

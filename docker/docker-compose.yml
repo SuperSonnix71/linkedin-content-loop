@@ -1,0 +1,18 @@
+services:
+  linkedin-loop:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: linkedin-content-loop
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      # Persist browser profile (LinkedIn session)
+      - browser-profile:/app/browser-profile
+      # Config file
+      - ../config.yaml:/app/config.yaml:ro
+    network_mode: host
+
+volumes:
+  browser-profile:

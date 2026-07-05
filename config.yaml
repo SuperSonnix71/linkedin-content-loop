@@ -1,0 +1,114 @@
+# ============================================================
+# LinkedIn Content Loop — Configuration
+# ============================================================
+
+# --- LinkedIn credentials (browser automation, no API) ---
+linkedin:
+  email: "you@example.com"
+  password: "your-password"
+  # Optional: path to save browser profile so you don't need 2FA every time
+  profile_dir: "./browser-profile"
+
+# --- Topics to research ---
+subjects:
+  - "AI"
+  - "LLM"
+  - "agents"
+  - "Claude"
+  - "OpenAI"
+  - "Anthropic"
+  - "opensource AI models"
+  - "models"
+  - "startup lessons"
+  - "artificial intelligence trends"
+  - "AI safety and alignment"
+  - "AI regulation and policy"
+
+# --- YouTube research (uses yt-dlp — no API key needed) ---
+youtube:
+  channels:
+    - "https://www.youtube.com/@matthew_berman"
+    - "https://www.youtube.com/@lexfridman"
+    - "https://www.youtube.com/@ycombinator"
+  max_videos_per_topic: 5
+
+# --- Web search (SearXNG — aggregates Google, Bing, DDG etc. — no API key) ---
+searxng:
+  base_url: "http://search.nuc:8081/search"
+  max_results_per_subject: 3
+
+# --- Twitter/X research (uses Nitter RSS — no API key needed) ---
+twitter:
+  accounts:
+    # OpenAI
+    - "sama"           # Sam Altman
+    - "OpenAI"
+    - "gdb"            # Greg Brockman
+    # Anthropic  
+    - "AnthropicAI"
+    - "DarioAmodei"    # Dario Amodei, CEO
+    # AI thought leaders
+    - "karpathy"       # Andrej Karpathy
+    - "ylecun"         # Yann LeCun (Meta AI)
+    - "emollick"       # Ethan Mollick (Wharton)
+    # Open source AI
+    - "huggingface"
+    - "MistralAI"
+    # AI safety & policy
+    - "jackclarkSF"    # Jack Clark (Anthropic policy)
+  max_tweets_per_account: 3
+reddit:
+  subreddits:
+    - "ClaudeAI"
+    - "artificial"
+    - "MachineLearning"
+    - "OpenAI"
+    - "LocalLLaMA"
+    - "opensource"
+    - "AIethics"
+    - "singularity"
+  max_posts_per_subreddit: 5
+
+# --- Post content instructions ---
+content:
+  tone: "conversational, like you're talking to a smart friend — direct, casual, no corporate speak"
+  style: "engaging, personal, opinionated, raw — write like a real person speaking, not a brand. Short punchy sentences. Fragments are fine. Contractions are fine. Say I. Be human."
+  language: "English"
+  max_characters: 3000
+  custom_instructions: |
+    - Lead with a specific number or concrete claim from the research
+    - Explore both positives and negatives before deciding the post's tone
+    - If risks dominate: explain why they matter, with evidence
+    - If positives dominate: explain why the upside is real, with evidence
+    - Use bullet points for actionable steps (not dense paragraphs)
+    - The CTA must be something the reader can do immediately
+    - Links: only to news articles, official docs, or research papers for fact-checking. Never link to YouTube, Twitter, or any individual creator's content
+    - Never use dashes or hyphens in the post text
+
+# --- Database (PostgreSQL — auto-creates DB + schema on first run) ---
+database:
+  host: "192.168.1.234"
+  port: 5432
+  user: "sonny"
+  password: "postgres"
+  dbname: "linkedin_loop"
+# --- AI model settings are in .env (AI_BASE_URL, AI_API_KEY, AI_MODEL) ---
+
+# --- Posting schedule ---
+schedule:
+  # How many posts
+  posts_per_day: 1
+  posts_per_week: 5
+  posts_per_month: 20
+  # When to post (24h format)
+  post_times:
+    - "09:00"
+  # Timezone
+  timezone: "America/Los_Angeles"
+  # Days to post
+  days:
+    - "monday"
+    - "tuesday"
+    - "wednesday"
+    - "thursday"
+    - "friday"
