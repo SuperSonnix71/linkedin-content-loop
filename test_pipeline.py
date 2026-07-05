@@ -112,6 +112,8 @@ def main() -> int:
     hr("2/3 GENERATION")
     try:
         start = time.time()
+        from db import get_selection_balance
+        mode = get_selection_balance()
         post, _chosen = generate(
             youtube_videos=yt,
             reddit_posts=rd,
@@ -120,7 +122,7 @@ def main() -> int:
             subjects=config["subjects"],
             content_config=config.get("content", {}),
             ai_config=ai_config,
-            selection_mode="insight",
+            selection_mode=mode,
             channel_insights=result.channel_insights,
         )
         elapsed = time.time() - start
