@@ -399,7 +399,8 @@ def run(
         channel_videos = _fetch_youtube_channels(channels, chan_max)
         videos.extend(channel_videos)
 
-        # Auto-extract topics from channel video titles (fully dynamic — no hardcoded lists)
+        # Auto-extract topics PER CHANNEL (not combined) so smaller channels
+        # like Matthew Berman don't get drowned out by Lex Fridman's views
         import re as _re
         from collections import Counter as _Counter
 
@@ -412,20 +413,29 @@ def run(
             "believe","these","those","they","them","their","into","over","after","before",
             "still","also","way","back","make","made","making","use","using","used","think",
             "know","see","say","said","really","actually","insane","wtf","try","watch",
+            # narrative/movie words that pollute non-AI YouTube results
+            "rise","fall","empire","india","create","largest","thing","since","episode",
+            "part","series","season","full","story","world","first","last","next","top",
         }
 
-        word_counts: _Counter = _Counter()
-        for v in channel_videos:
-            words = _re.findall(r"[A-Za-z0-9]+", v.title.lower())
-            for w in words:
-                if len(w) > 2 and w not in stopwords and not w.isdigit():
-                    word_counts[w] += 1
+        # Extract per channel
+        for channel_url in channels:
+            chan_vids = [v for v in channel_videos if v.source_subject == channel_url]
+            if not chan_vids:
+                continue
 
-        # Take top 5 most frequent words as auto-subjects, dedupe against existing
-        auto_subjects = [w for w, _ in word_counts.most_common(5) if w not in subjects]
-        if auto_subjects:
-            print(f"      Auto-subjects from channels: {auto_subjects}")
-            subjects = list(subjects) + auto_subjects
+            word_counts: _Counter = _Counter()
+            for v in chan_vids:
+                words = _re.findall(r"[A-Za-z0-9]+", v.title.lower())
+                for w in words:
+                    if len(w) > 2 and w not in stopwords and not w.isdigit():
+                        word_counts[w] += 1
+
+            # Take top 3 per channel as auto-subjects
+            chan_subjects = [w for w, _ in word_counts.most_common(3) if w not in subjects]
+            if chan_subjects:
+                print(f"      Auto-subjects from {channel_url}: {chan_subjects}")
+                subjects = list(subjects) + chan_subjects
 
     # Also search by subject keywords
     for subject in subjects:

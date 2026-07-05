@@ -323,9 +323,40 @@ Never name-drop."""
 
         post = _format_for_linkedin(raw)
 
-        # Validate URLs: only keep links that exist in the web research
+        # Validate URLs: only keep links that are both from matching subject AND relevant to the post content
         if news_items:
-            valid_urls = {n.url for n in news_items if n.url}
+            # Find which original subjects relate to the chosen subject
+            chosen_lower = subject_picked.lower() if subject_picked else ""
+            relevant_subjects = set()
+            for s in subjects:
+                if s.lower() in chosen_lower or chosen_lower in s.lower():
+                    relevant_subjects.add(s.lower())
+            if not relevant_subjects:
+                relevant_subjects = {s.lower() for s in subjects}
+
+            # Extract meaningful words from the post for relevance matching
+            post_words = set(re.findall(r"[a-z]{4,}", post.lower()))
+            # Remove common stopwords
+            post_words -= {
+                "that", "this", "with", "from", "have", "they", "will",
+                "your", "what", "when", "been", "them", "then", "into",
+                "than", "also", "more", "some", "such", "only", "very",
+                "just", "like", "make", "know", "think", "here", "there",
+            }
+
+            # Only allow URLs from matching subject AND with keyword overlap to the post
+            valid_urls = set()
+            for n in news_items:
+                if not n.url or n.source_subject.lower() not in relevant_subjects:
+                    continue
+                # Check keyword overlap between article and post
+                article_words = set(re.findall(r"[a-z]{4,}", (n.title + " " + n.snippet).lower()))
+                overlap = post_words & article_words
+                # Require at least 3 meaningful shared words to consider it relevant
+                if len(overlap) >= 3:
+                    valid_urls.add(n.url)
+
+            # Strip any URL in the post that isn't relevant
             url_pattern = re.compile(r'https?://[^\s<>"\']+')
             def _filter_urls(text: str) -> str:
                 def replace(match):
