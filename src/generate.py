@@ -168,7 +168,8 @@ FORMATTING:
   - **bold** for 2-4 key phrases. Also use **bold** for any transitional phrase that introduces a section or bullet list — the phrase alone in bold on its own line, then the content in regular text below.
   - *italic* for internal thoughts, asides.
   - • bullet points: plain text ONLY.
-  - NEVER emojis. NEVER section headers. NEVER name-drops. NEVER rhetorical questions. NEVER dashes. NEVER corporate speak (no "leveraging", "synergies", "ecosystem", "scaling", "optimizing"). Write like a human talking.
+   - NEVER emojis. NEVER section headers. NEVER name-drops. NEVER rhetorical questions. NEVER dashes. NEVER corporate speak (no "leveraging", "synergies", "ecosystem", "scaling", "optimizing"). Write like a human talking.
+   - NEVER ask for comments, replies, shares, likes, or any engagement. No "tell me in the comments", "what do you think", "drop your thoughts", "I want to hear from you", or any call to action. If the post is genuinely interesting, people will engage on their own. End with a strong closing thought, not an ask.
   - Links: max 1-2, only from web research. Must be news articles, official docs, or research papers. NEVER YouTube, Twitter, or creator content.
   - Hashtags: 5-6 at end. Choose tags with the highest audience reach that are still relevant to the post. Combine broad high-reach tags with niche specific ones. Pick them yourself based on the content — they must fit what you actually wrote.
 

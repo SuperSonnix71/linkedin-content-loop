@@ -73,6 +73,9 @@ reddit:
     - "opensource"
     - "AIethics"
     - "singularity"
+    - "AIMemory"
+    - "LLMDevs"
+    - "GithubCopilot"
   max_posts_per_subreddit: 5
 
 # --- Post content instructions ---
