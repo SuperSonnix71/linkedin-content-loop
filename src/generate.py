@@ -91,6 +91,18 @@ def generate(
     twitter_section = "\n".join(twitter_list)
     news_section = "\n".join(news_list)
 
+    # Build AVAILABLE SOURCES: URLs grouped by subject
+    from collections import defaultdict as _dd
+    sources_by_subject: dict[str, list[str]] = _dd(list)
+    for n in news_items:
+        if n.url and n.source_subject:
+            sources_by_subject[n.source_subject].append(f"{n.url} ({n.title[:80]})")
+    sources_lines = []
+    for subj, urls in sorted(sources_by_subject.items()):
+        for u in urls[:3]:
+            sources_lines.append(f"  [{subj}] {u}")
+    sources_section = "\n".join(sources_lines) if sources_lines else "(none)"
+
     # Channel insights: top videos from each subscribed channel
     channel_section = ""
     if channel_insights:
@@ -118,7 +130,7 @@ def generate(
         selection_rule = "Pick the subject with the highest research volume — most videos, most views, most Reddit activity. This is data-driven. Never pick a skipped subject."
         subject_format = 'which subject — MUST be the one with the highest research volume. Include the volume data that justifies it: "X videos, Y views, Z Reddit posts"'
     else:
-        selection_rule = "Pick the subject with the deepest tension between positive and negative impact — where BOTH sides are real and consequential. Favor CONCRETE findings: a specific product launch, a research paper, a real event — over abstract industry observations. 'AMD killed AI subscriptions' beats 'LLM hype is a risk.' Never pick a skipped subject."
+        selection_rule = "Pick the subject where the tension between positive and negative impact is deepest — where BOTH sides are real, consequential, and worth exploring. You must present both sides in the post, then give your weighted verdict. This is not about surface surprise. It's about substance. What finding has the most meaningful conflict? Never pick a skipped subject."
         subject_format = "which subject and WHY — explain what makes the tension between positive and negative so deep here"
 
     system_prompt = f"""You write LinkedIn posts. Your job: analyze the research, pick the subject with the deepest tension between positive and negative impact, and write a post that sounds human — not AI-generated.
@@ -136,7 +148,7 @@ WRITING RULES — these are not optional:
 - Read the post out loud in your head. If it sounds smooth and polished, start over.
 
 PROCESS:
-1. Read the research. Find the subject where BOTH sides carry real weight — positive impact is genuine AND negative risk is real. Prefer concrete specifics (a product launch, a research paper, a real event) over abstract industry patterns.
+1. Read the research. Find the subject where BOTH sides carry real weight — positive impact is genuine AND negative risk is real. Surface surprise doesn't matter — substance does.
 2. Trace both sides 2-3 levels deep. Weigh by impact magnitude, not by count. A single structural risk outweighs several incremental gains.
 3. Write the post. Show the upside first. Then the downside. Then your weighted verdict — which side wins and why.
 
@@ -173,6 +185,9 @@ Twitter/X:
 Web:
 {news_section}
 
+AVAILABLE SOURCES (URLs to cite in your post — use these, never invent URLs):
+{sources_section}
+
 ALL SUBJECTS: {subject_list}
 
 SKIP THESE (recently posted): {', '.join(skip_subjects) if skip_subjects else '(none)'}
@@ -189,7 +204,7 @@ You MUST output ONLY a valid JSON object. No text before or after. The JSON must
   "negatives": "[key negative findings with impact estimates]",
   "weight": "[explain which side dominates and why]",
   "hashtags": "[5-6 hashtags as a single string, space-separated, e.g. \"#AI #LLM #Infra\"]",
-  "link": "[paste ONE real URL from the web research above. Required — do not leave empty. If no article fits your subject exactly, pick the closest one and connect it.]",
+  "link": "[paste ONE URL from AVAILABLE SOURCES above that matches your chosen subject and angle, or empty string if none truly fit — relevance is more important than presence]",
   "titles": ["title 1 in **bold**", "title 2 in **bold**", "title 3 in **bold**"],
   "best_title": 1,
   "post": "[the full post text with formatting — bold, italic, bullet points, link on its own line, hashtags at end]"
@@ -278,6 +293,10 @@ The \"post\" field must be the complete post ready to publish — title in **bol
             for num, t in titles.items():
                 marker = " ▶" if num == best_num else "  "
                 print(f"      {marker} {num}. {t}")
+        if link_url:
+            print(f"      Link: {link_url}")
+        else:
+            print("      Link: (none)")
 
         post = _format_for_linkedin(raw)
 
@@ -317,14 +336,16 @@ The \"post\" field must be the complete post ready to publish — title in **bol
             }
 
             # Only allow URLs from matching subject AND with keyword overlap to the post
+            # ALSO: only allow URLs that actually exist in the fetched news items
+            fetched_urls = {n.url for n in news_items if n.url}
             valid_urls = set()
             for n in news_items:
                 if not n.url or n.source_subject.lower() not in relevant_subjects:
                     continue
-                # Check keyword overlap between article and post
+                if n.url not in fetched_urls:
+                    continue  # skip hallucinated URLs
                 article_words = set(re.findall(r"[a-z]{4,}", (n.title + " " + n.snippet).lower()))
                 overlap = post_words & article_words
-                # Require at least 3 meaningful shared words to consider it relevant
                 if len(overlap) >= 3:
                     valid_urls.add(n.url)
 
