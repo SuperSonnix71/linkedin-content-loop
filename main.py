@@ -56,8 +56,8 @@ def load_config(path: str = "config.yaml") -> dict:
     return config
 
 
-def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection_mode: str = "insight") -> bool:
-    """Execute the full pipeline: research → generate → post."""
+def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection_mode: str = "insight", dry_run: bool = False) -> bool:
+    """Execute the full pipeline: research → generate → post. Set dry_run=True to skip posting."""
     print("\n" + "=" * 60)
     print(f"  Starting pipeline at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
@@ -118,7 +118,15 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
     print(f"      Generated: {preview}")
     print(f"      Length: {len(post_text)} chars")
 
-    # 3. Post to LinkedIn
+    # 3. Post to LinkedIn (skip if dry run)
+    if dry_run:
+        print("\n[3/3] DRY RUN — skipping LinkedIn post.")
+        print("\n" + "=" * 60)
+        print(post_text)
+        print("=" * 60)
+        print("\n[+] Dry run complete. Post was NOT published.")
+        return True
+
     print("\n[3/3] Posting to LinkedIn...")
     print("      Running headless — will pause if 2FA is needed.")
     # LinkedIn config from .env (overrides config.yaml)
@@ -273,6 +281,11 @@ def main() -> None:
         help="Run the pipeline once immediately instead of starting the scheduler.",
     )
     parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Same as --run-now but does NOT post to LinkedIn. Shows the generated post.",
+    )
+    parser.add_argument(
         "--config",
         default="config.yaml",
         help="Path to config file (default: config.yaml)",
@@ -284,13 +297,14 @@ def main() -> None:
     # Initialize database (auto-creates DB + tables if needed)
     db_init()
 
-    if args.run_now:
+    if args.run_now or args.test:
         recent = get_recent_subjects()
         if recent:
             print(f"      Recent subjects (to avoid): {recent}")
         mode = os.getenv("SUBJECT_SELECTION") or get_selection_balance()
         print(f"      Selection mode: {mode}")
-        success = run_pipeline(config, skip_subjects=recent, selection_mode=mode)
+        dry = bool(args.test)
+        success = run_pipeline(config, skip_subjects=recent, selection_mode=mode, dry_run=dry)
         sys.exit(0 if success else 1)
     else:
         print("[*] Starting LinkedIn Content Loop scheduler...")

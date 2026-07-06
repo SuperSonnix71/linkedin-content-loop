@@ -241,6 +241,9 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 lines = lines[:-1]
             raw = "\n".join(lines).strip()
 
+        # Sanitize: escape stray control characters that break JSON parsing
+        raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+
         # Parse JSON response
         import json as _json
 
@@ -256,6 +259,10 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 return "", ""
 
         subject_picked = data.get("subject", "")
+        # Extract just the subject name (first word/phrase, before any colon or paren)
+        clean_subject = subject_picked.split(":")[0].split("(")[0].strip().rstrip(".")
+        if len(clean_subject) > 50:
+            clean_subject = clean_subject[:50]
         axes = data.get("axes", "")
         positives = data.get("positives", "")
         negatives = data.get("negatives", "")
@@ -317,7 +324,7 @@ The \"post\" field must be the complete post ready to publish — title in **bol
         # Validate URLs: only keep links that are both from matching subject AND relevant to the post content
         if news_items:
             # Find which original subjects relate to the chosen subject
-            chosen_lower = subject_picked.lower() if subject_picked else ""
+            chosen_lower = clean_subject.lower()
             relevant_subjects = set()
             for s in subjects:
                 if s.lower() in chosen_lower or chosen_lower in s.lower():
@@ -374,6 +381,6 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 filtered_lines.append(line)
             post = "\n".join(filtered_lines)
 
-        return post, subject_picked
+        return post, clean_subject
     except Exception as e:
         raise RuntimeError(f"LLM generation failed: {e}") from e
