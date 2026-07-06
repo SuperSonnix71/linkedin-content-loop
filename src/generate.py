@@ -118,86 +118,40 @@ def generate(
         selection_rule = "Pick the subject with the highest research volume — most videos, most views, most Reddit activity. This is data-driven. Never pick a skipped subject."
         subject_format = 'which subject — MUST be the one with the highest research volume. Include the volume data that justifies it: "X videos, Y views, Z Reddit posts"'
     else:
-        selection_rule = "Pick the subject with the most surprising or counter-intuitive finding — not the most views. What gap between belief and evidence is widest? Pick what matters, not what's popular. Never pick a skipped subject."
-        subject_format = "which subject and WHY — explain the surprising or counter-intuitive insight that made you choose it"
+        selection_rule = "Pick the subject with the deepest tension between positive and negative impact — where BOTH sides are real and consequential. Favor CONCRETE findings: a specific product launch, a research paper, a real event — over abstract industry observations. 'AMD killed AI subscriptions' beats 'LLM hype is a risk.' Never pick a skipped subject."
+        subject_format = "which subject and WHY — explain what makes the tension between positive and negative so deep here"
 
-    system_prompt = f"""You are the author of a LinkedIn post. Follow the instructions below.
+    system_prompt = f"""You write LinkedIn posts. Your job: analyze the research, pick the subject with the deepest tension between positive and negative impact, and write a post that sounds human — not AI-generated.
 
 {custom}
 
----
+WRITING RULES — these are not optional:
+- Write like you're texting a smart friend about something that matters. Short sentences. Fragments. Contractions always (don't, can't, I've, it's, they're).
+- No "The [noun] is [adjective]" openers. Start with "I", "You", a verb, a number, or just jump in.
+- No "However", "Furthermore", "Moreover", "While X, Y...". No transitions.
+- Vary sentence length hard. A 3-word sentence. Then a 20-word one. Then a fragment.
+- Never use: stark, reality, landscape, ecosystem, leverage, synergy, optimization, holistic.
+- No bullet points that all start with the same word (parallel structure = AI).
+- End with a strong thought. Never ask for comments, likes, or engagement.
+- Read the post out loud in your head. If it sounds smooth and polished, start over.
 
 PROCESS:
+1. Read the research. Find the subject where BOTH sides carry real weight — positive impact is genuine AND negative risk is real. Prefer concrete specifics (a product launch, a research paper, a real event) over abstract industry patterns.
+2. Trace both sides 2-3 levels deep. Weigh by impact magnitude, not by count. A single structural risk outweighs several incremental gains.
+3. Write the post. Show the upside first. Then the downside. Then your weighted verdict — which side wins and why.
 
-STEP 1 — EXPLORE FREELY:
-Read the research. What patterns jump out? What numbers stop you? Let your mind branch naturally. Ask: "If this is true, what happens next? And then what? Who gets hurt? Who wins?"
-
-STEP 2 — PICK YOUR AXES (3-5):
-Identify the 3-5 most important axes. Examples: cost, data privacy, power concentration, future of work, vendor lock-in, security. Pick what matters most.
-
-STEP 3 — GO DEEP (2-3 levels per axis, BOTH sides):
-For each axis, trace BOTH the positive and negative chain:
-  Positive: what improves? who benefits? what new possibilities open up?
-  Negative: what breaks? who gets hurt? what's the hidden cost?
-Go 2-3 levels deep on each side. Use specific timeframes.
-
-STEP 4 — WEIGH BY IMPACT (not by count):
-For every finding — positive or negative — assess its TANGIBLE IMPACT:
-  • SCOPE: How many people/companies/industries are affected?
-  • SEVERITY: How bad or good is the outcome? Gradual improvement or existential threat?
-  • IRREVERSIBILITY: Can it be undone? Or is it permanent?
-  • TIMEFRAME: 3 months, 1 year, 5 years?
-
-A single high-impact finding can outweigh three moderate ones. Don't count — weigh.
-  Example: "$25T credit collapse = global recession, millions of jobs lost" has more impact than "inference costs dropped 30% = teams save money."
-  If the worst-case negative has 100x the impact of the best-case positive, the negatives dominate — regardless of count.
-
-State which side wins AND why the impact magnitude tipped the scale.
-
-STEP 5 — PICK SUBJECT BY INSIGHT:
-Look at your tree-of-thought exploration. Which subject produced the most surprising, counter-intuitive, or disturbing finding? Pick the subject where the gap between what people believe and what the evidence shows is the widest. Not the most popular — the most important.
-
-STEP 6 — FIND THE THREAD:
-Where do your weighted axes and chosen angle intersect? If warning: the impact of the negatives is the story — explain why the magnitude matters. If optimistic: the positive impact is genuinely transformative — explain why it outweighs the risks.
-
-STEP 7 — WRITE 3 TITLE OPTIONS (each ≤120 chars, use **bold**):
-  If warning: a sharp observation, a blunt warning, an uncomfortable truth.
-  If optimistic: a bold claim, a surprising insight, a contrarian take.
-  If balanced: present the tension honestly.
-Pick the best one.
-
-STEP 8 — WRITE THE POST:
-  - First line: the chosen TITLE wrapped in **bold**.
-  - Voice: write exactly like you talk. Text a friend about something that pisses you off or blows your mind. Short punchy sentences. Fragments. Contractions everywhere (don't, can't, I've, it's, they're, gonna, kinda, wanna). If a sentence sounds like it belongs in a white paper, delete it.
-  - Absorb research insights. Never name-drop individuals.
-  - Back claims with evidence. YOU MUST include at least one link from the web research. Links go at the END of the post, each on its own line. Never inline links. Real sources only.
-  - Length: 1200-1800 chars.
-
-ANTI-AI WRITING RULES (break these and the post fails):
-  • No "The [noun] is [adjective]" sentence openers — this is the #1 AI tell. Start sentences with "I", "You", "We", actual verbs, or just jump in.
-  • No compare/contrast structures: "While X, Y...", "On one hand...", "However,..." — sound like an AI essay, not a human.
-  • No "Here's what you need to do" or "Here's how to..." preambles before bullet points. Just drop the bullets.
-  • No perfect parallel structure in lists. If every bullet starts with the same part of speech, it sounds corporate.
-  • No transitions: "Furthermore,", "Moreover,", "Additionally,", "In conclusion,", "To summarize,"
-  • Never use the word "stark" — AI loves this word.
-  • Never use "reality", "landscape", "ecosystem", "leverage", "synergy", "optimization" — corporate/AI garbage.
-  • No balanced "here's both sides" structure. Pick a lane. Be opinionated. Raw. You're a real person with a real take, not a diplomat.
-  • Vary sentence length HARD. A 3-word sentence. Then a 20-word one. Then a fragment. Then a long one. Predictable rhythm = AI.
-  • Start a sentence with "And" or "But" or "So" or "Because" — humans do this, AI doesn't.
-  • Use can't/don't/won't instead of cannot/do not/will not. Always.
-
-FINAL CHECK: Read your post out loud. If it sounds smooth and polished like a LinkedIn influencer wrote it, start over. If it sounds like you're ranting to a friend over coffee, ship it.
-
-FORMATTING:
-  - **bold** for 2-4 key phrases. Also use **bold** for any transitional phrase that introduces a section or bullet list — the phrase alone in bold on its own line, then the content in regular text below.
-  - *italic* for internal thoughts, asides.
-  - • bullet points: plain text ONLY.
-   - NEVER emojis. NEVER section headers. NEVER name-drops. NEVER rhetorical questions. NEVER dashes. NEVER corporate speak (no "leveraging", "synergies", "ecosystem", "scaling", "optimizing"). Write like a human talking.
-   - NEVER ask for comments, replies, shares, likes, or any engagement. No "tell me in the comments", "what do you think", "drop your thoughts", "I want to hear from you", or any call to action. If the post is genuinely interesting, people will engage on their own. End with a strong closing thought, not an ask.
-  - Links: max 1-2, only from web research. Must be news articles, official docs, or research papers. NEVER YouTube, Twitter, or creator content.
-  - Hashtags: 5-6 at end. Choose tags with the highest audience reach that are still relevant to the post. Combine broad high-reach tags with niche specific ones. Pick them yourself based on the content — they must fit what you actually wrote.
+FORMAT:
+- Title in **bold** as first line (≤120 chars).
+- **Bold** for 2-4 key phrases and for transitional lines that introduce bullet lists.
+- *Italic* for internal thoughts or asides.
+- Bullet points: plain text only.
+- YOU MUST include a link from the web research. No link = failed post. Put each link on its own line after the post body and before hashtags.
+- 5-6 hashtags at the very end.
+- Length: 1200-1800 chars.
+- No emojis, no dashes, no name-drops, no rhetorical questions, no section headers like "The Upside" or "The Downside".
 
 Tone: {tone}. Style: {style}. Language: {language}."""
+
 
     user_prompt = f"""Research findings:
 
@@ -226,23 +180,22 @@ If any subject in the skip list is also in your subjects, pick a DIFFERENT subje
 
 SELECTION RULE: {selection_rule}
 
-You MUST output ONLY this exact format:
+You MUST output ONLY a valid JSON object. No text before or after. The JSON must have these exact keys:
 
-SUBJECT PICKED: [{subject_format}]
-AXES PICKED: [list the 3-5 axes you chose]
-POSITIVES: [key positive findings with tangible impact estimates: scope, severity, irreversibility]
-NEGATIVES: [key negative findings with tangible impact estimates: scope, severity, irreversibility]
-WEIGHT: [explain which side dominates — weigh by IMPACT MAGNITUDE, not count. A single existential threat can outweigh three moderate benefits. Be specific about which finding tipped the scale and why.]
-HASHTAGS CHOSEN: [list hashtags and briefly explain why each was chosen — based on reach, relevance]
-TITLE 1: [use **bold**]
-TITLE 2: [use **bold**]
-TITLE 3: [use **bold**]
-BEST: [1, 2, or 3]
+{{
+  "subject": "[{subject_format}]",
+  "axes": "[list the 3-5 axes you chose]",
+  "positives": "[key positive findings with impact estimates]",
+  "negatives": "[key negative findings with impact estimates]",
+  "weight": "[explain which side dominates and why]",
+  "hashtags": "[5-6 hashtags as a single string, space-separated, e.g. \"#AI #LLM #Infra\"]",
+  "link": "[paste ONE real URL from the web research above. Required — do not leave empty. If no article fits your subject exactly, pick the closest one and connect it.]",
+  "titles": ["title 1 in **bold**", "title 2 in **bold**", "title 3 in **bold**"],
+  "best_title": 1,
+  "post": "[the full post text with formatting — bold, italic, bullet points, link on its own line, hashtags at end]"
+}}
 
-THE CHOSEN TITLE repeated in **bold**, then the post:
-[post starts here]
-
-Never name-drop."""
+The \"post\" field must be the complete post ready to publish — title in **bold** as first line, body, link on its own line, hashtags at the very end."""
 
     try:
         response = client.chat.completions.create(
@@ -273,45 +226,40 @@ Never name-drop."""
                 lines = lines[:-1]
             raw = "\n".join(lines).strip()
 
-        # Parse output sections
+        # Parse JSON response
+        import json as _json
+
+        try:
+            data = _json.loads(raw)
+        except _json.JSONDecodeError:
+            # Fallback: try to extract JSON from within the text
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                data = _json.loads(match.group(0))
+            else:
+                print("      Failed to parse JSON response")
+                return "", ""
+
+        subject_picked = data.get("subject", "")
+        axes = data.get("axes", "")
+        positives = data.get("positives", "")
+        negatives = data.get("negatives", "")
+        weight = data.get("weight", "")
+        hashtags_raw = data.get("hashtags", "")
+        link_url = data.get("link", "")
+        titles_raw = data.get("titles", [])
+        best_num = str(data.get("best_title", 1))
+        post_raw = data.get("post", "")
+
+        # Build titles dict
         titles = {}
-        best_num = None
-        axes = positives = negatives = weight = subject_picked = hashtags_reasoning = ""
-        post_start = 0
-        lines = raw.split("\n")
-        for i, line in enumerate(lines):
-            s = line.strip()
-            if s.startswith("AXES PICKED:") or s.startswith("AXES PICKED "):
-                axes = s.partition(":")[2].strip() if ":" in s else s[12:].strip()
-            elif s.startswith("POSITIVES:") or s.startswith("POSITIVES "):
-                positives = s.partition(":")[2].strip() if ":" in s else s[10:].strip()
-            elif s.startswith("NEGATIVES:") or s.startswith("NEGATIVES "):
-                negatives = s.partition(":")[2].strip() if ":" in s else s[10:].strip()
-            elif s.startswith("WEIGHT:") or s.startswith("WEIGHT "):
-                weight = s.partition(":")[2].strip() if ":" in s else s[7:].strip()
-            elif s.startswith("SUBJECT PICKED:") or s.startswith("SUBJECT PICKED "):
-                subject_picked = s.partition(":")[2].strip() if ":" in s else s[15:].strip()
-            elif s.startswith("HASHTAGS CHOSEN:") or s.startswith("HASHTAGS CHOSEN "):
-                hashtags_reasoning = s.partition(":")[2].strip() if ":" in s else s[16:].strip()
-            elif s.startswith("TITLE 1:") or s.startswith("TITLE 1 "):
-                titles["1"] = s.partition(":")[2].strip() if ":" in s else s[8:].strip()
-            elif s.startswith("TITLE 2:") or s.startswith("TITLE 2 "):
-                titles["2"] = s.partition(":")[2].strip() if ":" in s else s[8:].strip()
-            elif s.startswith("TITLE 3:") or s.startswith("TITLE 3 "):
-                titles["3"] = s.partition(":")[2].strip() if ":" in s else s[8:].strip()
-            elif s.startswith("BEST:"):
-                best_str = s.partition("BEST:")[2].strip().rstrip(".")
-                best_num = best_str if best_str in ("1","2","3") else None
-                post_start = i + 1
-                # Skip blank lines after BEST
-                while post_start < len(lines) and not lines[post_start].strip():
-                    post_start += 1
-                # Skip instruction artifacts like "CHOSEN TITLE" or "[post starts here]" lines
-                while post_start < len(lines) and any(
-                    w in lines[post_start].lower() for w in
-                    ["chosen title", "post starts here", "[post", "the chosen"]
-                ):
-                    post_start += 1
+        if isinstance(titles_raw, list):
+            for idx, t in enumerate(titles_raw, 1):
+                titles[str(idx)] = t
+            if best_num not in titles:
+                best_num = "1" if "1" in titles else next(iter(titles.keys()), "1")
+
+        raw = post_raw
 
         if axes:
             print(f"\n      Axes: {axes}")
@@ -323,48 +271,29 @@ Never name-drop."""
             print(f"      ⚖ Weight verdict: {weight}")
         if subject_picked:
             print(f"      Subject chosen: {subject_picked}")
-        if hashtags_reasoning:
-            print(f"      Hashtags: {hashtags_reasoning}")
+        if hashtags_raw:
+            print(f"      Hashtags: {hashtags_raw}")
         if titles:
             print(f"      Titles considered ({len(titles)}):")
             for num, t in titles.items():
                 marker = " ▶" if num == best_num else "  "
                 print(f"      {marker} {num}. {t}")
 
-        if post_start > 0:
-            post_body = "\n".join(lines[post_start:]).strip()
-            # If the post body doesn't start with the chosen title, prepend it
-            chosen_title = titles.get(best_num, "") if best_num else ""
-            if chosen_title and not post_body.startswith(chosen_title[:30]):
-                post_body = chosen_title + "\n\n" + post_body
-            raw = post_body
-        else:
-            # Model didn't output BEST: — strip metadata lines from raw
-            metadata_prefixes = ("AXES PICKED", "POSITIVES", "NEGATIVES", "WEIGHT",
-                                 "SUBJECT PICKED", "HASHTAGS", "TITLE 1",
-                                 "TITLE 2", "TITLE 3", "BEST", "SELECTION RULE",
-                                 "[POST", "[THE CHOSEN", "THE CHOSEN")
-            raw = "\n".join(
-                line for line in lines
-                if not any(line.strip().upper().startswith(p) for p in metadata_prefixes)
-            ).strip()
-
         post = _format_for_linkedin(raw)
 
-        # If the model forgot to include hashtags in the post body, add them
-        # from the HASHTAGS CHOSEN metadata line
-        if "#" not in post and hashtags_reasoning:
-            # Extract #tag-like words from the reasoning
-            tag_words = re.findall(r"#\w+", hashtags_reasoning)
-            if tag_words:
-                post = post.rstrip() + "\n\n" + " ".join(tag_words)
+        # If the model forgot hashtags in the post body, add from metadata
+        if "#" not in post and hashtags_raw:
+            tags = hashtags_raw.strip()
+            if tags:
+                post = post.rstrip() + "\n\n" + tags
+
+        # Inject link from metadata if model provided one but forgot it in post
+        if link_url and "http" not in post:
+            hashtag_start = post.find("\n#")
+            if hashtag_start > 0:
+                post = post[:hashtag_start].rstrip() + "\n\n" + link_url + post[hashtag_start:]
             else:
-                # Fallback: extract capitalized words as potential tags
-                words = re.findall(r"[A-Z][a-z]+[A-Z]\w*|[A-Z][a-z]+", hashtags_reasoning)
-                potential = [w for w in words if len(w) > 5 and w.lower() not in {"Chosen", "Hashtags"}]
-                if potential:
-                    tags = " ".join(f"#{w}" for w in potential[:6])
-                    post = post.rstrip() + "\n\n" + tags
+                post = post.rstrip() + "\n\n" + link_url
 
         # Validate URLs: only keep links that are both from matching subject AND relevant to the post content
         if news_items:
