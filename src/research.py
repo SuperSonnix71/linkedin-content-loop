@@ -184,6 +184,9 @@ def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
     """Fetch top posts from Reddit via RSS feeds — no auth, no bot detection."""
     import re
     import time
+    import random
+    import urllib.request
+    import urllib.error
     import xml.etree.ElementTree as ET
 
     posts: list[RedditItem] = []
@@ -194,18 +197,29 @@ def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
     }
 
     for i, sub in enumerate(subreddits):
-        # Rate limit: 1 request per second to avoid 429
         if i > 0:
-            time.sleep(1.5)
+            # 3s base delay between subreddits to respect rate limits
+            time.sleep(3 + random.random() * 2)
 
-        url = f"https://www.reddit.com/r/{sub}/top.rss?t=week&limit={max_per}&raw_json=1"
-        try:
-            import urllib.request
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = resp.read().decode("utf-8")
-        except Exception as e:
-            print(f"[!] Reddit RSS fetch failed for r/{sub}: {e}")
+        url = f"https://www.reddit.com/r/{sub}/top.rss?t=week&limit={max_per}"
+        data = None
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = resp.read().decode("utf-8")
+                break
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < 2:
+                    wait = (attempt + 1) * 10
+                    time.sleep(wait + random.random() * 5)
+                    continue
+                print(f"[!] Reddit RSS fetch failed for r/{sub}: {e}")
+                break
+            except Exception as e:
+                print(f"[!] Reddit RSS fetch failed for r/{sub}: {e}")
+                break
+        if not data:
             continue
 
         try:
