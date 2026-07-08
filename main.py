@@ -290,7 +290,12 @@ def main() -> None:
     parser.add_argument(
         "--test",
         action="store_true",
-        help="Same as --run-now but does NOT post to LinkedIn. Shows the generated post.",
+        help="Test the full pipeline including browser automation but does NOT post. Shows the generated post.",
+    )
+    parser.add_argument(
+        "--test-post",
+        action="store_true",
+        help="Like --test but also clicks Post to verify the button works. Post WILL be published.",
     )
     parser.add_argument(
         "--config",
@@ -304,13 +309,13 @@ def main() -> None:
     # Initialize database (auto-creates DB + tables if needed)
     db_init()
 
-    if args.run_now or args.test:
+    if args.run_now or args.test or args.test_post:
         recent = get_recent_subjects()
         if recent:
             print(f"      Recent subjects (to avoid): {recent}")
         mode = os.getenv("SUBJECT_SELECTION") or get_selection_balance()
         print(f"      Selection mode: {mode}")
-        dry = bool(args.test)
+        dry = bool(args.test)  # --test: dry run, --test-post: actual post
         success = run_pipeline(config, skip_subjects=recent, selection_mode=mode, dry_run=dry)
         sys.exit(0 if success else 1)
     else:

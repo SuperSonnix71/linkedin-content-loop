@@ -176,15 +176,46 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
             editor.type(text, delay=5)
             time.sleep(3)
 
+            # Post button — try multiple approaches (test this regardless of dry_run)
+            post_btn_found = False
+            for selector in [
+                'button.share-actions__primary-action',
+                'button[aria-label="Post"]',
+                'button:has-text("Post")',
+            ]:
+                for btn in page.locator(selector).all():
+                    try:
+                        if btn.is_visible():
+                            post_btn_found = True
+                            print("      Post button found and visible.")
+                            break
+                    except Exception:
+                        continue
+                if post_btn_found:
+                    break
+            if not post_btn_found:
+                for btn in page.locator('button').all():
+                    try:
+                        text = (btn.text_content() or "").strip()
+                        if btn.is_visible() and text.lower() in ("post", "send", "share"):
+                            post_btn_found = True
+                            print("      Post button found via text scan.")
+                            break
+                    except Exception:
+                        continue
+            if not post_btn_found:
+                print("[!] Could not find Post button.")
+                page.screenshot(path="/tmp/linkedin_no_post_btn.png")
+                return False
+
             if dry_run:
-                print("      [DRY RUN] Post filled but NOT published.")
+                print("      [DRY RUN] Post button found. Not clicking it.")
                 page.screenshot(path="/tmp/linkedin_dryrun.png")
                 print("      Screenshot saved to /tmp/linkedin_dryrun.png")
                 return True
 
-            # Post button — try multiple approaches
+            # Click the Post button
             posted = False
-            # Approach 1: class-based selector
             for selector in [
                 'button.share-actions__primary-action',
                 'button[aria-label="Post"]',
@@ -200,7 +231,6 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
                         continue
                 if posted:
                     break
-            # Approach 2: scan ALL visible buttons for "Post" text
             if not posted:
                 for btn in page.locator('button').all():
                     try:
@@ -211,9 +241,6 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
                             break
                     except Exception:
                         continue
-            if not posted:
-                print("[!] Could not find Post button.")
-                return False
 
             time.sleep(3)
 
