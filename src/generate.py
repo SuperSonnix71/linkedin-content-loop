@@ -249,13 +249,19 @@ The \"post\" field must be the complete post ready to publish — title in **bol
 
         try:
             data = _json.loads(raw)
-        except _json.JSONDecodeError:
+        except _json.JSONDecodeError as e:
             # Fallback: try to extract JSON from within the text
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if match:
-                data = _json.loads(match.group(0))
+                try:
+                    data = _json.loads(match.group(0))
+                except _json.JSONDecodeError:
+                    print(f"      JSON parse failed: {str(e)[:100]}")
+                    print(f"      Raw output (first 200 chars): {raw[:200]}")
+                    return "", ""
             else:
-                print("      Failed to parse JSON response")
+                print(f"      JSON parse failed: {str(e)[:100]}")
+                print(f"      Raw output (first 200 chars): {raw[:200]}")
                 return "", ""
 
         subject_picked = data.get("subject", "")

@@ -25,16 +25,18 @@ def _handle_2fa(page: Page) -> bool:
     return True  # No 2FA detected
 
 
-def post_to_linkedin(text: str, config: dict) -> bool:
+def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
     """
     Log into LinkedIn and create a post with the given text.
+    Set dry_run=True to test the full flow without actually posting.
 
     Args:
         text: The post body text.
-        config: The 'linkedin' section from config.yaml.
+        config: dict with 'email', 'password', and optional 'profile_dir'.
+        dry_run: If True, fills the post but does NOT click Post.
 
     Returns:
-        True if posted successfully, False otherwise.
+        True if posted successfully (or would have posted in dry run), False otherwise.
     """
     email = config["email"]
     password = config["password"]
@@ -46,7 +48,22 @@ def post_to_linkedin(text: str, config: dict) -> bool:
             user_data_dir=profile_dir,
             headless=True,
             channel="chromium",
+            args=[
+                "--disable-blink-features=AutomationControlled",
+            ],
         )
+
+        # Inject anti-detection scripts into every page
+        browser.add_init_script("""
+            // Remove webdriver flag
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            // Fake plugins array (headless Chrome has none)
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            // Fake languages
+            Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+            // Fake chrome runtime
+            window.chrome = {runtime: {}};
+        """)
 
         page = browser.pages[0] if browser.pages else browser.new_page()
 
@@ -159,22 +176,44 @@ def post_to_linkedin(text: str, config: dict) -> bool:
             editor.type(text, delay=5)
             time.sleep(3)
 
-            # Post button is inside the dialog, with class share-actions__primary-action
-            post_btn = page.locator('button.share-actions__primary-action').first
-            try:
-                # Wait for button to become enabled (disabled attr removed after typing)
-                post_btn.wait_for(state="visible", timeout=5000)
-                # Click even if disabled="true" — let LinkedIn handle it
-                post_btn.click(timeout=5000)
-            except Exception:
-                # Fallback: try any visible Post button
-                for b in page.locator('button:has-text("Post")').all():
-                    if b.is_visible():
-                        try:
-                            b.click(timeout=3000)
+            if dry_run:
+                print("      [DRY RUN] Post filled but NOT published.")
+                page.screenshot(path="/tmp/linkedin_dryrun.png")
+                print("      Screenshot saved to /tmp/linkedin_dryrun.png")
+                return True
+
+            # Post button — try multiple approaches
+            posted = False
+            # Approach 1: class-based selector
+            for selector in [
+                'button.share-actions__primary-action',
+                'button[aria-label="Post"]',
+                'button:has-text("Post")',
+            ]:
+                for btn in page.locator(selector).all():
+                    try:
+                        if btn.is_visible():
+                            btn.click(timeout=5000)
+                            posted = True
                             break
-                        except Exception:
-                            continue
+                    except Exception:
+                        continue
+                if posted:
+                    break
+            # Approach 2: scan ALL visible buttons for "Post" text
+            if not posted:
+                for btn in page.locator('button').all():
+                    try:
+                        text = (btn.text_content() or "").strip()
+                        if btn.is_visible() and text.lower() in ("post", "send", "share"):
+                            btn.click(timeout=3000)
+                            posted = True
+                            break
+                    except Exception:
+                        continue
+            if not posted:
+                print("[!] Could not find Post button.")
+                return False
 
             time.sleep(3)
 
@@ -193,6 +232,12 @@ def post_to_linkedin(text: str, config: dict) -> bool:
                 return True
 
         except Exception as e:
+            # Save screenshot on failure for debugging
+            try:
+                page.screenshot(path="/tmp/linkedin_error.png")
+                print("      Saved error screenshot to /tmp/linkedin_error.png")
+            except Exception:
+                pass
             print(f"[!] Error during LinkedIn posting: {e}")
             return False
         finally:

@@ -120,12 +120,19 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
 
     # 3. Post to LinkedIn (skip if dry run)
     if dry_run:
-        print("\n[3/3] DRY RUN — skipping LinkedIn post.")
+        print("\n[3/3] Testing browser automation (dry run — won't post)...")
+        linkedin_config = {
+            "email": os.getenv("LINKEDIN_EMAIL", config.get("linkedin", {}).get("email", "")),
+            "password": os.getenv("LINKEDIN_PASSWORD", config.get("linkedin", {}).get("password", "")),
+            "profile_dir": config.get("linkedin", {}).get("profile_dir", "./browser-profile"),
+        }
+        browser_ok = post_to_linkedin(post_text, linkedin_config, dry_run=True)
+        print(f"\n      Browser test: {'PASSED' if browser_ok else 'FAILED'}")
         print("\n" + "=" * 60)
         print(post_text)
         print("=" * 60)
         print("\n[+] Dry run complete. Post was NOT published.")
-        return True
+        return browser_ok
 
     print("\n[3/3] Posting to LinkedIn...")
     print("      Running headless — will pause if 2FA is needed.")
@@ -136,7 +143,7 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
         "profile_dir": config.get("linkedin", {}).get("profile_dir", "./browser-profile"),
     }
     try:
-        success = post_to_linkedin(post_text, linkedin_config)
+        success = post_to_linkedin(post_text, linkedin_config, dry_run=dry_run)
     except Exception as e:
         print(f"[!] Posting failed: {e}")
         return False
