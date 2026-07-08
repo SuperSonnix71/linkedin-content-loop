@@ -145,6 +145,7 @@ WRITING RULES — these are not optional:
 - Never use: stark, reality, landscape, ecosystem, leverage, synergy, optimization, holistic.
 - No bullet points that all start with the same word (parallel structure = AI).
 - End with a strong thought. Never ask for comments, likes, or engagement.
+- No hyperbole. No apocalyptic language. No "terrifies me", "the end of", "killing", "destroying", "taking over". Be precise, not dramatic. If a claim sounds like a movie trailer, rewrite it. Numbers and specifics beat adjectives.
 - Read the post out loud in your head. If it sounds smooth and polished, start over.
 
 PROCESS:
@@ -326,6 +327,11 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 post = post[:hashtag_start].rstrip() + "\n\n" + link_url + post[hashtag_start:]
             else:
                 post = post.rstrip() + "\n\n" + link_url
+            if "http" not in post:
+                print(f"      Link injection FAILED: {link_url[:60]}")
+        link_after_inject = "http" in post
+        if not link_after_inject:
+            link_after_inject = "http" in post
 
         # Validate URLs: only keep links that are both from matching subject AND relevant to the post content
         if news_items:
@@ -353,13 +359,16 @@ The \"post\" field must be the complete post ready to publish — title in **bol
             fetched_urls = {n.url for n in news_items if n.url}
             valid_urls = set()
             for n in news_items:
-                if not n.url or n.source_subject.lower() not in relevant_subjects:
+                if not n.url or n.url not in fetched_urls:
                     continue
-                if n.url not in fetched_urls:
-                    continue  # skip hallucinated URLs
                 article_words = set(re.findall(r"[a-z]{4,}", (n.title + " " + n.snippet).lower()))
                 overlap = post_words & article_words
-                if len(overlap) >= 3:
+                # Require high keyword overlap. Subject match is preferred but
+                # 5+ shared words overrides subject mismatch (cross-cutting articles).
+                if len(overlap) >= 5:
+                    valid_urls.add(n.url)
+                elif len(overlap) >= 3 and n.source_subject.lower() in relevant_subjects:
+                    valid_urls.add(n.url)
                     valid_urls.add(n.url)
 
             # Strip any URL in the post that isn't relevant, AND remove the dangling
@@ -386,6 +395,8 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                     line = new_line
                 filtered_lines.append(line)
             post = "\n".join(filtered_lines)
+            if link_after_inject and "http" not in post:
+                print(f"      Link stripped by validation. valid_urls count: {len(valid_urls)}")
 
         return post, clean_subject
     except Exception as e:

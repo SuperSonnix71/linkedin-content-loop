@@ -80,8 +80,8 @@ reddit:
 
 # --- Post content instructions ---
 content:
-  tone: "raw, direct, opinionated — like you're ranting to a friend, not writing a post. No polished sentences. No corporate voice. Sound human."
-  style: "text-a-friend energy. Short punchy lines. Fragments. Contractions everywhere. Vary sentence length wildly. Start sentences with And/But/So/Because. No transitions. No balanced takes — pick a side. Sound like you actually believe what you're saying."
+  tone: "raw, precise, measured — like an engineer explaining something that actually matters. No drama. No hyperbole. Be specific. Numbers and mechanisms over adjectives."
+  style: "text-a-friend-who-builds-stuff energy. Short punchy lines. Fragments. Contractions everywhere. Vary sentence length wildly. Start sentences with And/But/So/Because. No transitions. No balanced takes — pick a side. Sound like you actually know what you're talking about, not like you're selling something."
   language: "English"
   max_characters: 3000
   custom_instructions: |
