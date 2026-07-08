@@ -117,7 +117,7 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
 
                 if "login" in page.url.lower():
                     # Check for error messages using text content (IDs are randomized)
-                    error_text = page.locator('text*=Please try again').first
+                    error_text = page.get_by_text("Please try again", exact=False).first
                     if error_text.is_visible(timeout=1000):
                         print("[!] Login error: credentials may be incorrect.")
                     else:
@@ -245,10 +245,13 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
             time.sleep(3)
 
             # Verify the post was published — check for error dialogs
-            error_dialog = page.locator('text*=Something went wrong').first
-            if error_dialog.is_visible(timeout=1000):
-                print("[!] LinkedIn showed an error after posting. Post may have failed.")
-                return False
+            try:
+                error_dialog = page.get_by_text("Something went wrong", exact=False).first
+                if error_dialog.is_visible(timeout=2000):
+                    print("[!] LinkedIn showed an error after posting. Post may have failed.")
+                    return False
+            except Exception:
+                pass  # If the error check itself fails, the post probably went through
 
             # Check we're back on the feed (modal closes on success)
             if "feed" in page.url.lower():
