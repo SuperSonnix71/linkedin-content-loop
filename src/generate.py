@@ -221,7 +221,7 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.85,
-            max_tokens=8192,
+            max_tokens=32768,
         )
         msg = response.choices[0].message
         raw = msg.content
