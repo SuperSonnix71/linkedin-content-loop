@@ -153,7 +153,7 @@ WRITING RULES — these are not optional:
 - No bullet points that all start with the same word (parallel structure = AI).
 - End with a strong thought. Never ask for comments, likes, or engagement.
 - No hyperbole. No apocalyptic language. Be precise, not dramatic. Numbers and specifics beat adjectives.
-- NEVER fabricate. Every fact, number, quote, and anecdote must exist in the research data. If you write 'we watched a founder vibe code' or 'a team just did X' and it's not in the research, the post is garbage. Only cite what's actually there. If the research says 'a scientist published a paper' you can reference it. You cannot invent 'a startup in Berlin' or 'last week at a conference.' No exceptions.
+- NEVER fabricate. Every concrete fact (number, name, event, quote) must exist in the research. You cannot invent 'a founder vibe coded a 7-figure tool' or 'a startup in Berlin just did X' — that's lying. Tree-of-thought projections are different: you CAN say 'if this continues, the pipeline breaks in 18 months' or 'the structural risk outweighs' because you're analyzing, not inventing. Distinction: analysis = valid. Fake stories = garbage.
 - Read the post out loud in your head. If it sounds smooth and polished, start over.
 
 PROCESS:
