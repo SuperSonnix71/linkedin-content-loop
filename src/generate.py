@@ -280,14 +280,13 @@ The \"post\" field must be the complete post ready to publish — title in **bol
         if len(clean_subject) > 50:
             clean_subject = clean_subject[:50]
 
-        # Fuzzy dedup: also check if any word from clean_subject overlaps with any skip subject
+        # Fuzzy dedup: block if 2+ words overlap with any skip subject
         if skip_subjects:
             chosen_words = set(clean_subject.lower().split())
             for skip in skip_subjects:
                 skip_words = set(skip.lower().split())
-                if chosen_words & skip_words:
+                if len(chosen_words & skip_words) >= 2:
                     print(f"      Subject '{clean_subject}' overlaps with skipped '{skip}' — picking another.")
-                    subject_picked = clean_subject  # keep for logging
                     return "", ""
         axes = data.get("axes", "")
         positives = data.get("positives", "")
