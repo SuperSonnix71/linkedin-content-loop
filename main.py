@@ -144,7 +144,10 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
     }
     # Log attempt to DB BEFORE posting — guardrail learns even if post fails
     title = post_text.split("\n")[0].strip() if post_text else ""
-    log_post(subject=chosen_subject, title=title, content=post_text, selection_mode=selection_mode)
+    import re as _re
+    tag_matches = _re.findall(r"#\w+", post_text)
+    hashtags = " ".join(tag_matches) if tag_matches else ""
+    log_post(subject=chosen_subject, title=title, content=post_text, hashtags=hashtags, selection_mode=selection_mode)
 
     try:
         success = post_to_linkedin(post_text, linkedin_config, dry_run=dry_run)
