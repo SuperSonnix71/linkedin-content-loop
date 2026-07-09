@@ -137,7 +137,7 @@ def generate(
         selection_rule = "Pick the subject with the highest research volume — most videos, most views, most Reddit activity. This is data-driven. Never pick a skipped subject."
         subject_format = 'which subject — MUST be the one with the highest research volume. Include the volume data that justifies it: "X videos, Y views, Z Reddit posts"'
     else:
-        selection_rule = "Pick the subject with the deepest tension between positive and negative impact — where BOTH sides are real and supported by actual research data. Use Reddit discussions as signal for what people care about, but only cite specific facts that appear in the research. Never fabricate anecdotes. Never pick a skipped subject."
+        selection_rule = "Mine Reddit for the most interesting angle. Look at what real people are discussing with real engagement — hot takes, concerns, breakthroughs. A 5000-upvote Reddit thread often reveals more interesting angles than 50M YouTube views. Find the discussion with the deepest tension between positive and negative impact, regardless of which subject it belongs to. Never pick a skipped subject. Reddit content trumps YouTube volume."
         subject_format = "which subject and WHY — explain what makes the tension between positive and negative so deep here"
 
     system_prompt = f"""You write LinkedIn posts. Your job: analyze the research, pick the subject with the deepest tension between positive and negative impact, and write a post that sounds human — not AI-generated.
@@ -152,7 +152,8 @@ WRITING RULES — these are not optional:
 - Never use: stark, reality, landscape, ecosystem, leverage, synergy, optimization, holistic.
 - No bullet points that all start with the same word (parallel structure = AI).
 - End with a strong thought. Never ask for comments, likes, or engagement.
-- No hyperbole. No apocalyptic language. No fabricated anecdotes — every claim must trace back to actual research data. Never invent characters ("a founder", "a team"), numbers, or scenarios. If it's not in the research, don't write it.
+- No hyperbole. No apocalyptic language. Be precise, not dramatic. Numbers and specifics beat adjectives.
+- NEVER fabricate. Every fact, number, quote, and anecdote must exist in the research data. If you write 'we watched a founder vibe code' or 'a team just did X' and it's not in the research, the post is garbage. Only cite what's actually there. If the research says 'a scientist published a paper' you can reference it. You cannot invent 'a startup in Berlin' or 'last week at a conference.' No exceptions.
 - Read the post out loud in your head. If it sounds smooth and polished, start over.
 
 PROCESS:
