@@ -62,7 +62,7 @@ def generate(
 
     from collections import defaultdict
 
-    subject_stats: dict[str, dict] = defaultdict(lambda: {"videos": 0, "total_views": 0, "reddit_posts": 0})
+    subject_stats: dict[str, dict] = defaultdict(lambda: {"videos": 0, "total_views": 0, "reddit_posts": 0, "total_upvotes": 0})
     video_list: list[str] = []
     reddit_list: list[str] = []
 
@@ -76,7 +76,14 @@ def generate(
         reddit_list.append(f"  - {p.summary()}")
         if p.selftext:
             reddit_list.append(f"    Excerpt: {p.selftext[:200].replace(chr(10), ' ')}...")
-        subject_stats[p.subreddit]["reddit_posts"] += 1
+        # Map subreddit name to closest configured subject
+        best_subj = p.subreddit
+        for s in subjects:
+            if s.lower() in p.subreddit.lower() or p.subreddit.lower() in s.lower():
+                best_subj = s
+                break
+        subject_stats[best_subj]["reddit_posts"] += 1
+        subject_stats[best_subj]["total_upvotes"] += p.score
 
     twitter_list: list[str] = []
     for t in twitter_posts[:15]:
@@ -113,12 +120,12 @@ def generate(
         print(f"      Channels: {', '.join(ci['channel'] for ci in channel_insights)}")
 
     volume_lines = []
-    for name, stats in sorted(subject_stats.items(), key=lambda x: x[1]["total_views"] + x[1]["reddit_posts"] * 10000, reverse=True):
+    for name, stats in sorted(subject_stats.items(), key=lambda x: x[1]["total_views"] + x[1]["total_upvotes"] * 1000, reverse=True):
         parts = []
         if stats["videos"]:
             parts.append(f"{stats['videos']} videos ({stats['total_views']:,} views)")
         if stats["reddit_posts"]:
-            parts.append(f"{stats['reddit_posts']} Reddit posts")
+            parts.append(f"{stats['reddit_posts']} Reddit posts ({stats['total_upvotes']:,} upvotes)")
         if parts:
             volume_lines.append(f"  {name}: {', '.join(parts)}")
     volume_summary = "\n".join(volume_lines)
