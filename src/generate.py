@@ -137,7 +137,7 @@ def generate(
         selection_rule = "Pick the subject with the highest research volume — most videos, most views, most Reddit activity. This is data-driven. Never pick a skipped subject."
         subject_format = 'which subject — MUST be the one with the highest research volume. Include the volume data that justifies it: "X videos, Y views, Z Reddit posts"'
     else:
-        selection_rule = "Mine Reddit for the most interesting angle. Look at what real people are discussing with real engagement — hot takes, concerns, breakthroughs. A 5000-upvote Reddit thread often reveals more interesting angles than 50M YouTube views. Find the discussion with the deepest tension between positive and negative impact, regardless of which subject it belongs to. Never pick a skipped subject. Reddit content trumps YouTube volume."
+        selection_rule = "Mine Reddit for the most interesting angle. Look at what real people are discussing with real engagement — hot takes, concerns, breakthroughs. A 5000-upvote Reddit thread often reveals more interesting angles than 50M YouTube views. Find the discussion with the deepest tension between positive and negative impact, regardless of which subject it belongs to. Never pick a skipped subject. Also avoid subjects that share words with any skipped subject — if 'agents' is skipped, don't pick 'AI coding assistants' or 'agentic work'. Reddit content trumps YouTube volume."
         subject_format = "which subject and WHY — explain what makes the tension between positive and negative so deep here"
 
     system_prompt = f"""You write LinkedIn posts. Your job: analyze the research, pick the subject with the deepest tension between positive and negative impact, and write a post that sounds human — not AI-generated.
@@ -275,10 +275,20 @@ The \"post\" field must be the complete post ready to publish — title in **bol
                 return "", ""
 
         subject_picked = data.get("subject", "")
-        # Extract just the subject name (first word/phrase, before any colon or paren)
-        clean_subject = subject_picked.split(":")[0].split("(")[0].strip().rstrip(".")
+        # Extract just the subject name (first word/phrase, before colons, parens, or sentence breaks)
+        clean_subject = subject_picked.split(":")[0].split("(")[0].split(". The")[0].split(". the")[0].strip().rstrip(".,:; ")
         if len(clean_subject) > 50:
             clean_subject = clean_subject[:50]
+
+        # Fuzzy dedup: also check if any word from clean_subject overlaps with any skip subject
+        if skip_subjects:
+            chosen_words = set(clean_subject.lower().split())
+            for skip in skip_subjects:
+                skip_words = set(skip.lower().split())
+                if chosen_words & skip_words:
+                    print(f"      Subject '{clean_subject}' overlaps with skipped '{skip}' — picking another.")
+                    subject_picked = clean_subject  # keep for logging
+                    return "", ""
         axes = data.get("axes", "")
         positives = data.get("positives", "")
         negatives = data.get("negatives", "")
