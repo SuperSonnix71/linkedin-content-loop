@@ -181,104 +181,54 @@ def _fetch_youtube_channels(
 
 
 def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
-    """Fetch top posts from Reddit via RSS feeds — no auth, no bot detection."""
-    import re
+    """Fetch top posts from Reddit via Playwright browser."""
     import time
-    import random
-    import urllib.request
-    import urllib.error
-    import xml.etree.ElementTree as ET
+    from playwright.sync_api import sync_playwright
 
     posts: list[RedditItem] = []
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/rss+xml, application/xml, */*",
-    }
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            viewport={"width": 1280, "height": 800},
+        )
+        context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            window.chrome = {runtime: {}};
+        """)
+        page = context.new_page()
 
-    for i, sub in enumerate(subreddits):
-        if i > 0:
-            # 3s base delay between subreddits to respect rate limits
-            time.sleep(3 + random.random() * 2)
-
-        url = f"https://www.reddit.com/r/{sub}/top.rss?t=week&limit={max_per}"
-        data = None
-        for attempt in range(3):
+        for i, sub in enumerate(subreddits):
+            if i > 0:
+                time.sleep(3 + (i % 3) * 2)
+            url = f"https://old.reddit.com/r/{sub}/top/?sort=top&t=week&limit={max_per}"
             try:
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = resp.read().decode("utf-8")
-                break
-            except urllib.error.HTTPError as e:
-                if e.code == 429 and attempt < 2:
-                    wait = (attempt + 1) * 10
-                    time.sleep(wait + random.random() * 5)
-                    continue
-                print(f"[!] Reddit RSS fetch failed for r/{sub}: {e}")
-                break
+                page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                page.wait_for_timeout(2000)
+                entries = page.locator("div.thing[data-type=link]").all()
+                for entry in entries[:max_per]:
+                    try:
+                        title_el = entry.locator("a.title").first
+                        title = (title_el.text_content() or "").strip()
+                        link = title_el.get_attribute("href") or ""
+                        score_str = (entry.get_attribute("data-score") or "0")
+                        score = int(score_str) if score_str.lstrip("-").isdigit() else 0
+                        if title:
+                            posts.append(RedditItem(
+                                title=title,
+                                url=f"https://old.reddit.com{link}" if link.startswith("/") else link,
+                                subreddit=sub, score=score, num_comments=0,
+                            ))
+                    except Exception:
+                        continue
+                print(f"      r/{sub}: {min(len(entries), max_per)} posts")
             except Exception as e:
-                print(f"[!] Reddit RSS fetch failed for r/{sub}: {e}")
-                break
-        if not data:
-            continue
-
-        try:
-            root = ET.fromstring(data)
-        except ET.ParseError as e:
-            print(f"[!] Reddit RSS parse error for r/{sub}: {e}")
-            continue
-
-        # Atom namespace
-        ns = {"atom": "http://www.w3.org/2005/Atom"}
-
-        count = 0
-        for entry in root.findall("atom:entry", ns):
-            if count >= max_per:
-                break
-
-            title_el = entry.find("atom:title", ns)
-            link_el = entry.find("atom:link", ns)
-            content_el = entry.find("atom:content", ns)
-
-            title = title_el.text if title_el is not None else ""
-            link = link_el.get("href", "") if link_el is not None else ""
-            content_html = content_el.text if content_el is not None else ""
-
-            # Extract selftext from HTML content (strip tags, decode entities)
-            plain = ""
-            if content_html:
-                # Remove HTML tags
-                plain = re.sub(r"<[^>]+>", " ", content_html)
-                # Decode common HTML entities
-                plain = (
-                    plain.replace("&amp;", "&")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">")
-                    .replace("&quot;", '"')
-                    .replace("&#39;", "'")
-                    .replace("&apos;", "'")
-                )
-                # Collapse whitespace
-                plain = re.sub(r"\s+", " ", plain).strip()
-                # Remove "submitted by" noise that Reddit adds
-                plain = re.sub(r"\s*submitted by\s+.*?\s+\[link\].*?\[comments\].*", "", plain)
-
-            if title:
-                posts.append(
-                    RedditItem(
-                        title=title,
-                        url=link,
-                        subreddit=sub,
-                        score=0,  # RSS doesn't include scores
-                        num_comments=0,
-                        selftext=plain[:1000],
-                    )
-                )
-                count += 1
-
+                print(f"[!] Reddit fetch failed for r/{sub}: {e}")
+                continue
+        browser.close()
     return posts
-
-
 def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
     """Fetch recent tweets via Nitter RSS feeds. No API key, no browser."""
     import time
