@@ -137,7 +137,7 @@ def generate(
         selection_rule = "Pick the subject with the highest research volume — most videos, most views, most Reddit activity. This is data-driven. Never pick a skipped subject."
         subject_format = 'which subject — MUST be the one with the highest research volume. Include the volume data that justifies it: "X videos, Y views, Z Reddit posts"'
     else:
-        selection_rule = "Pick the subject where the tension between positive and negative impact is deepest — where BOTH sides are real, consequential, and worth exploring. You must present both sides in the post, then give your weighted verdict. This is not about surface surprise. It's about substance. What finding has the most meaningful conflict? Never pick a skipped subject."
+        selection_rule = "Mine Reddit for the most interesting angle. Look at what real people are discussing with real engagement — hot takes, concerns, breakthroughs. A 5000-upvote Reddit thread often reveals more interesting angles than 50M YouTube views. Find the discussion with the deepest tension between positive and negative impact, regardless of which subject it belongs to. Never pick a skipped subject. Reddit content trumps YouTube volume."
         subject_format = "which subject and WHY — explain what makes the tension between positive and negative so deep here"
 
     system_prompt = f"""You write LinkedIn posts. Your job: analyze the research, pick the subject with the deepest tension between positive and negative impact, and write a post that sounds human — not AI-generated.

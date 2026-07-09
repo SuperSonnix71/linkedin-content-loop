@@ -174,10 +174,9 @@ def get_selection_balance(days: int = 7) -> str:
         )
         rows = {r["selection_mode"]: r["cnt"] for r in cur.fetchall()}
         cur.close()
-        if rows.get("insight", 0) > rows.get("volume", 0):
+        # Bias toward insight: 2 insight posts per 1 volume post
+        if rows.get("insight", 0) >= rows.get("volume", 0) * 2:
             return "volume"
-        elif rows.get("volume", 0) > rows.get("insight", 0):
-            return "insight"
         return "insight"
     except Exception:
         return "insight"
