@@ -3,6 +3,7 @@ LinkedIn browser automation: logs in and posts via Playwright.
 No LinkedIn API required. Handles session persistence and 2FA.
 """
 
+import os
 import time
 
 from playwright.sync_api import Page, sync_playwright
@@ -41,6 +42,14 @@ def post_to_linkedin(text: str, config: dict, dry_run: bool = False) -> bool:
     email = config["email"]
     password = config["password"]
     profile_dir = config.get("profile_dir", "./browser-profile")
+
+    # Clean stale lock file from crashed Chromium
+    lock_path = os.path.join(profile_dir, "SingletonLock")
+    if os.path.exists(lock_path):
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
 
     with sync_playwright() as p:
         # Use persistent context to save cookies/session
