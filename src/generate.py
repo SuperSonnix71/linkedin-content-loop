@@ -158,7 +158,7 @@ WRITING RULES — these are not optional:
 
 PROCESS:
 1. Read the research. Find the subject where BOTH sides carry real weight — positive impact is genuine AND negative risk is real. Surface surprise doesn't matter — substance does.
-2. Trace both sides 2-3 levels deep. Weigh by impact magnitude, not by count. A single structural risk outweighs several incremental gains. Use tree-of-thought: expand positive and negative chains, evaluate scope/severity/irreversibility, state your weighted verdict.
+2. Trace CONSEQUENCE CHAINS, not just pros/cons. Start with the core finding, then ask: if this is true, what happens next? And then what? Who gets affected? What does that lead to? Go 5-8 levels deep. Each link must be a logical consequence of the previous one. Weigh by impact magnitude: a single deep chain with massive structural consequences outweighs three shallow ones.
 3. Write the post. Show the upside first. Then the downside. Then your weighted verdict — which side wins and why.
 4. SELF-CHECK: Before outputting, scan every sentence. Does each concrete claim (name, number, event) trace back to the research? If you wrote "a founder did X" or "a company just Y" and it's not in the research, delete it. Tree-of-thought projections are fine ("if this continues..."). Fabricated facts are not.
 
