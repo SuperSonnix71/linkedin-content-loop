@@ -142,18 +142,21 @@ def run_pipeline(config: dict, skip_subjects: list[str] | None = None, selection
         "password": os.getenv("LINKEDIN_PASSWORD", config.get("linkedin", {}).get("password", "")),
         "profile_dir": config.get("linkedin", {}).get("profile_dir", "./browser-profile"),
     }
+    # Log attempt to DB BEFORE posting — guardrail learns even if post fails
+    title = post_text.split("\n")[0].strip() if post_text else ""
+    log_post(subject=chosen_subject, title=title, content=post_text, selection_mode=selection_mode)
+
     try:
         success = post_to_linkedin(post_text, linkedin_config, dry_run=dry_run)
     except Exception as e:
         print(f"[!] Posting failed: {e}")
+        print("\n[-] Posting failed but subject logged to DB. Won't repeat.")
         return False
 
     if success:
-        title = post_text.split("\n")[0].strip() if post_text else ""
-        log_post(subject=chosen_subject, title=title, content=post_text, selection_mode=selection_mode)
         print("\n[+] Pipeline complete — post published.")
     else:
-        print("\n[-] Pipeline finished but posting may have failed.")
+        print("\n[-] Pipeline finished but posting may have failed. Subject logged.")
 
     return success
 
