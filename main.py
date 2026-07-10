@@ -28,7 +28,7 @@ from src.db import (
     log_post,
 )
 from src.db import initialize as db_init
-from src.generate import generate
+from src.pipeline import generate_post as generate
 from src.post import post_to_linkedin
 from src.research import run as run_research
 

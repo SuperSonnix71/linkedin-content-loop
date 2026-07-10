@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import yaml
 from dotenv import load_dotenv
 
-from src.generate import generate
+from src.pipeline import generate_post as generate
 from src.research import run as run_research
 
 # Load .env

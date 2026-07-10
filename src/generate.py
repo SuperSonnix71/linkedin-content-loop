@@ -2,7 +2,6 @@
 
 import re
 
-from openai import OpenAI
 
 # ─── LinkedIn formatting conversion ──────────────────────────────────
 
@@ -53,8 +52,10 @@ def generate(
     selection_mode: str = "insight",
     channel_insights: list[dict] | None = None,
 ) -> tuple[str, str]:
-    client = OpenAI(base_url=ai_config["base_url"], api_key=ai_config["api_key"])
-    model = ai_config["model"]
+    from src.ai_client import get_client, get_model
+
+    client = get_client()
+    model = get_model()
     tone = content_config.get("tone", "direct and conversational")
     style = content_config.get("style", "personal and raw")
     language = content_config.get("language", "English")
