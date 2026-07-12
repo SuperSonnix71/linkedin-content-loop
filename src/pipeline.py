@@ -8,6 +8,7 @@ Each node has ONE focused job. State passes as typed JSON between nodes.
 from __future__ import annotations
 
 import os
+import random
 import re
 from typing import TypedDict
 
@@ -151,7 +152,7 @@ Start with this candidate subject and its research context. Explore consequences
 
 Example angles: economic impact, power consolidation, workforce/labor, security/privacy, competitive dynamics, societal/governance, infrastructure/deployment.
 
-Each chain must be logical consequences of the previous link. Do NOT fabricate — only use what's in the research. Pure logical projection from facts is fine.
+Each chain must be logical consequences of the previous link — do NOT invent a new causal mechanism or drag in a subject the research never covered just to keep the chain going. Do NOT fabricate — only use what's in the research. Pure logical projection from facts is fine, and state each level plainly and confidently; the concern is inventing an unsupported link or subject, not the confidence of the phrasing.
 
 After exploring, choose exactly TWO angles for the final post: the single strongest angle, plus one that creates real tension or contrast with it (a counterpoint, a complication, an opposing force). These two chains are the ONLY ones that will reach the writer — do not pick two angles that just restate each other.
 
@@ -174,7 +175,14 @@ def thinker_node(state: PipelineState) -> dict:
         print("      Thinker: no candidates, using fallback")
         return {"subject": "AI", "chains": {}, "relevant_subject": "AI"}
 
-    chosen = candidates[0]
+    # Weighted random pick, biased toward the analyzer's top ranking but not
+    # locked to it — otherwise near-identical research across nearby runs
+    # (same subjects, "top of week" sources) always resurfaces the same
+    # subject and thus the same angles, run after run.
+    weights_by_count = {1: [1.0], 2: [0.65, 0.35], 3: [0.55, 0.30, 0.15]}
+    top = candidates[:3]
+    weights = weights_by_count[len(top)]
+    chosen = random.choices(top, weights=weights, k=1)[0]
     subject = chosen.get("subject", "AI")
     reason = chosen.get("reason", "")
     relevant = chosen.get("relevant_subject", "AI")
@@ -243,6 +251,18 @@ def thinker_node(state: PipelineState) -> dict:
         if matched:
             selected = matched
     selected = selected[:2] if selected else chains_list[:2]
+    # The Thinker is asked for two angles in tension; if its chosen_angles field
+    # only names one (typo, or it just returned one), pad back up to 2 from the
+    # remaining explored chains so a single angle doesn't silently become the
+    # whole post's frame — losing the "counterpoint" that keeps it one argument
+    # rather than a flat, uncontested claim.
+    if len(selected) < 2:
+        selected_ids = {id(c) for c in selected}
+        for c in chains_list:
+            if len(selected) >= 2:
+                break
+            if id(c) not in selected_ids:
+                selected.append(c)
     print(f"      Thinker: writing with {[c.get('angle', '?') for c in selected]}")
 
     return {
@@ -262,7 +282,9 @@ def writer_node(state: PipelineState) -> dict:
     chains_data = state.get("chains", {})
     research_data = state.get("research_data", "")
     fixes = state.get("fixes", [])
+    previous_post = state.get("post_raw", "")
     content_config = state.get("content_config") or {}
+    is_retry = bool(fixes and previous_post)
 
     if not chains_data:
         return {"post_raw": "", "title": "", "hashtags_raw": ""}
@@ -277,6 +299,21 @@ def writer_node(state: PipelineState) -> dict:
     style = content_config.get("style", "personal and raw")
     language = content_config.get("language", "English")
     custom = content_config.get("custom_instructions", "")
+
+    retry_block = (
+        f"""
+This is a REVISION, not a fresh draft. Here is the post you wrote last time:
+
+{previous_post}
+
+The Judge flagged these specific issues with it:
+{"; ".join(fixes)}
+
+Make the SMALLEST edit that resolves each flagged issue — rewrite or cut only the sentences/clauses named above. Keep every other sentence, claim, and the overall structure exactly as they were. Do not rewrite the post from scratch and do not touch anything the Judge didn't flag.
+"""
+        if is_retry
+        else ""
+    )
 
     prompt = f"""You write LinkedIn posts. Your ONLY job: take this strategic analysis and turn it into a post.
 
@@ -294,7 +331,7 @@ WRITING RULES:
 - Write like you're texting a smart friend. Short sentences. Fragments. Contractions.
 - No \"The [noun] is [adjective]\" openers. No \"However\", \"Furthermore\". No transitions.
 - No hyperbole. No apocalyptic language. No fabricated anecdotes. Every concrete fact must trace to research.
-- When you're drawing a conclusion, connecting two facts, or projecting forward — not reporting a fact directly from research — signal that it's a read, not settled truth: "that suggests," "reads like," "which could mean," "this is starting to look like." Keep it short and punchy, just don't state your own inference with more certainty than the research gives you. Save flat, no-hedge statements for what the research states directly.
+- When you're drawing a conclusion, connecting two facts, or projecting forward, state it with the same confident, decisive voice as everything else — don't invent a causal link the research doesn't support, and don't smuggle in a new subject the research never covered, but a flat, no-hedge sentence is the house style, not a violation.
 - No section headers (like \"The Upside\" or \"The Downside\").
 - **Bold** for 2-4 key phrases. *Italic* for internal thoughts.
 - Bullet points plain text. No parallel structure.
@@ -303,7 +340,7 @@ WRITING RULES:
 - Length: 1200-1800 chars. No emojis, no dashes, no name-drops.
 - Tone: {tone}. Style: {style}. Language: {language}.
 
-{"Fix these issues: " + "; ".join(fixes) if fixes else ""}
+{retry_block}
 
 Output ONLY a JSON object:
 {{"title": "THE BOLD TITLE — max 120 chars, first line of the post", "post": "the full post text starting with the bold title on line 1", "hashtags": "#tag1 #tag2 #tag3 #tag4 #tag5 #tag6"}}
@@ -315,7 +352,7 @@ The post field MUST start with the title in **bold** as its very first line. No 
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.85,
+            temperature=0.4 if is_retry else 0.85,
         )
         raw = resp.choices[0].message.content or ""
     except Exception as e:
@@ -486,17 +523,18 @@ A separate classification pass already extracted each substantive claim in the p
 
 1. UNSUPPORTED CLAIM — using the classification above (re-derive it yourself if it says "unavailable"), apply a DIFFERENT bar depending on post_type:
 
-   For Fact or Calculation claims (things presented as directly-reported information), flag it if:
+   For Fact or Calculation claims (things presented as directly-reported information), first check: is this a specific, checkable assertion (a number, a named event, an action a named entity took/is taking) — or is it general, well-known, definitional background about what a tool/company/technology already does (e.g. "Claude Code writes code," "LLMs generate text," "ChatGPT is a chatbot")? Background/definitional statements are common knowledge, not claims that could be fabricated, and do NOT need a research_basis — never flag these just because research_basis is NONE. For the specific/checkable kind, flag it if:
    - research_basis is NONE — the entities/numbers/events don't appear in the research at all
    - it broadens the scope beyond what research_basis supports (e.g. research covers one company/segment, post generalizes to "the industry")
+   - research_basis exists but is a DIFFERENT type (e.g. research_type=Recommendation "companies should adopt X") and the post states it as something already happening/true (post_type=Fact "companies are adopting X") — this converts a suggestion into a reported fact, which is a real fabrication even though a research_basis string is present
 
-   For Interpretation, Causal inference, Forecast, Recommendation, or Rhetorical framing claims — these are the post's OWN synthesis/argument built on top of the facts, and are NOT required to have a literal matching sentence in the research. A post that only restated research verbatim would have no argument at all. Flag one of these ONLY if:
+   For Interpretation, Causal inference, Forecast, Recommendation, or Rhetorical framing claims — these are the post's OWN synthesis/argument built on top of the facts, and are NOT required to have a literal matching sentence in the research, and are NOT required to be hedged. A confident, declarative "pick a side" voice is the intended house style — do not flag a claim just because it's stated flatly instead of with "may"/"suggests"/"could." Flag one of these ONLY if:
    - it invents a causal or mechanistic link between two facts the research only reports side-by-side or as correlated (e.g. research says "X launched" and separately "Y rose 15%"; post says "X caused Y to rise 15%" — the entities and number are real, but the causation is invented)
-   - it's phrased with the certainty of a settled Fact or universal law — no hedge at all ("may," "suggests," "looks like," "this could mean") — while research_type for the same underlying point is itself Interpretation/Forecast/NONE (a hedge got silently dropped, or a hedged interpretation got restated as an unhedged Rhetorical-framing maxim, e.g. research_type=Interpretation "infrastructure ownership may improve strategic control" → post_type=Rhetorical framing "Whoever controls the chips controls the margin": same idea, but the hedge is gone)
+   - it generalizes an interpretation into a claim about a DIFFERENT subject the research never addressed (e.g. research_type=Interpretation "infrastructure ownership may improve strategic control" [about control] → post_type=Rhetorical framing "Whoever controls the chips controls the margin" [a new, broader claim about profit margins the research never discussed] — the confident delivery is fine, the smuggled-in new subject is not)
    - it directly contradicts something the research states as fact
-   Genuinely hedged interpretation/causal-inference/forecast language is the expected shape of analysis — do NOT flag it just because it lacks a verbatim quote in research_basis. Only flag when it's stated with more confidence than the underlying support warrants.
+   Confident synthesis that stays within the topic and relationships the research actually supports is exactly what this pipeline is for — only flag genuine invention (new causal links, new subjects, contradictions), not confident tone.
 
-2. INCOHERENCE — the post should build ONE coherent argument around two angles that create tension with each other. Flag it as incoherent if it instead reads as a list of disconnected claims stitched together — e.g. jumping between unrelated topics (a technical breakthrough, then labor markets, then legal liability, then market consolidation) with no logical throughline connecting them, or drawing a conclusion that doesn't actually follow from the claim before it.
+2. INCOHERENCE — the post should build ONE coherent argument around two angles that create tension with each other. Flag it as incoherent if it instead reads as a list of disconnected claims stitched together — e.g. jumping between unrelated topics (a technical breakthrough, then labor markets, then legal liability, then market consolidation) with no logical throughline connecting them, or drawing a conclusion that doesn't actually follow from the claim before it. This includes a subtler version: check whether a single repeated word or phrase (e.g. "trust," "governance," "velocity") is the ONLY thing connecting two or more research threads that are otherwise unrelated — if two paragraphs each cite a different news item and the only link between them is that both use the same buzzword, that is buzzword-glued, not argued, and counts as incoherent even though every individual sentence reads smoothly. A real throughline means the SECOND claim is a consequence, complication, or contrast of the FIRST — not just a claim that happens to share a keyword with it.
 
 3. SELF-CONTRADICTION — flag any pair of claims within the post that directly conflict with each other (e.g. "not replacing coders" and "stripping execution roles") when the post never reconciles the tension. Quote both conflicting passages.
 
@@ -511,7 +549,7 @@ Post to verify:
 Output ONLY a JSON object:
 {{"approved": true or false, "unsupported_claims": ["exact passage — what the research actually supports vs. what the post asserts"], "incoherence_issues": ["specific description of the logical gap or unrelated jump 1"], "self_contradictions": ["passage A vs. passage B — how they conflict"]}}
 
-approved=true only if EVERY claim's exact relationship (causal direction, scope, certainty, type) is directly supported by the research, no two claims in the post contradict each other unreconciled, AND the post reads as one coherent argument (unsupported_claims=[], incoherence_issues=[], self_contradictions=[])."""
+approved=true only if EVERY fact traces to the research, no claim invents a causal link or smuggles in a new subject the research never covered, no two claims in the post contradict each other unreconciled, AND the post reads as one coherent argument (unsupported_claims=[], incoherence_issues=[], self_contradictions=[])."""
 
         try:
             resp = client.chat.completions.create(

@@ -259,10 +259,6 @@ def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
             link = link_el.text if link_el is not None else ""
             desc = desc_el.text if desc_el is not None else ""
 
-            # Nitter RSS titles sometimes start with "R to @user:" for replies — skip those
-            if title.startswith("R to @"):
-                continue
-
             # Clean description HTML
             import re
 
