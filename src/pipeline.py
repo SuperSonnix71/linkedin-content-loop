@@ -293,7 +293,8 @@ WRITING RULES:
 - You've been given exactly two angles above, chosen because they create tension with each other. Weave them into ONE coherent argument with a clear throughline — do not treat them as separate sections, and do not introduce a third angle.
 - Write like you're texting a smart friend. Short sentences. Fragments. Contractions.
 - No \"The [noun] is [adjective]\" openers. No \"However\", \"Furthermore\". No transitions.
-- No hyperbole. No apocalyptic language. No fabricated anecdotes. Every concrete claim must trace to research.
+- No hyperbole. No apocalyptic language. No fabricated anecdotes. Every concrete fact must trace to research.
+- When you're drawing a conclusion, connecting two facts, or projecting forward — not reporting a fact directly from research — signal that it's a read, not settled truth: "that suggests," "reads like," "which could mean," "this is starting to look like." Keep it short and punchy, just don't state your own inference with more certainty than the research gives you. Save flat, no-hedge statements for what the research states directly.
 - No section headers (like \"The Upside\" or \"The Downside\").
 - **Bold** for 2-4 key phrases. *Italic* for internal thoughts.
 - Bullet points plain text. No parallel structure.
@@ -395,16 +396,109 @@ def judge_node(state: PipelineState) -> dict:
                 f"FABRICATED URL: {clean_url} — does not exist in research. Remove or replace with a real URL from research."
             )
 
+    def _strip_fences(raw: str) -> str:
+        raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+        if raw.startswith("```"):
+            raw = "\n".join(raw.split("\n")[1:])
+        if raw.endswith("```"):
+            raw = "\n".join(raw.split("\n")[:-1])
+        return raw.strip()
+
+    def _parse_json_loose(raw: str, bracket_pattern: str):
+        raw = _strip_fences(raw)
+        try:
+            return _json.loads(raw)
+        except _json.JSONDecodeError:
+            match = re.search(bracket_pattern, raw, re.DOTALL)
+            if not match:
+                return None
+            try:
+                return _json.loads(match.group(0))
+            except _json.JSONDecodeError:
+                return None
+
+    claim_types = """   - Fact (stated plainly, no hedge)
+   - Calculation (arithmetic/aggregation over reported numbers)
+   - Interpretation (a hedged reading of what a fact means: "may," "suggests," "could indicate")
+   - Causal inference (asserts X caused/causes Y)
+   - Forecast (a projection about the future)
+   - Recommendation (advice — what someone should do)
+   - Rhetorical framing (a maxim, aphorism, or slogan-style restatement, e.g. "whoever controls X controls Y")"""
+
+    def _classify_claims(client, model) -> list[dict]:
+        """Separate structured pass: extract each substantive claim, its type as
+        stated in the post, and the closest research statement (and its type) for
+        the same underlying point. Kept separate from the fabrication/coherence
+        judgment below so classification doesn't get done silently, inline, and
+        unverifiably as a side effect of a differently-focused prompt."""
+        prompt = f"""Extract every substantive claim from this LinkedIn post — every sentence or clause asserting something (skip filler, greetings, hashtags).
+
+For each claim, classify its TYPE as it appears in the post, using exactly one of:
+{claim_types}
+
+Then find the closest matching statement in the research data for the same underlying point, quote it (or write "NONE" if the research says nothing related), and classify ITS type using the same list.
+
+Research data:
+{research_data}
+
+Post:
+{post_raw}
+
+Output ONLY a JSON array, one object per claim:
+[{{"claim": "exact claim text from the post", "post_type": "...", "research_basis": "quoted research sentence or NONE", "research_type": "... or NONE"}}]"""
+
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+            )
+            raw = resp.choices[0].message.content or ""
+        except Exception as e:
+            print(f"      Judge claim classification failed: {e}")
+            return []
+
+        claims = _parse_json_loose(raw, r"\[.*\]")
+        return claims if isinstance(claims, list) else []
+
+    def _format_claims(claims: list[dict]) -> str:
+        if not claims:
+            return "(classification unavailable — judge claims directly against research data below)"
+        lines = [
+            f'- CLAIM: "{c.get("claim", "")}" | post_type={c.get("post_type", "?")} '
+            f'| research_basis="{c.get("research_basis", "NONE")}" | research_type={c.get("research_type", "NONE")}'
+            for c in claims
+        ]
+        return "\n".join(lines)
+
     # LLM-level check: verify concrete claims against research
     if research_data:
         client = get_client()
         model = get_model()
 
-        prompt = f"""You are an editor. Your ONLY job: scan this post for two kinds of problems.
+        claims = _classify_claims(client, model)
+        claims_block = _format_claims(claims)
 
-1. FABRICATION — a claim is fabricated if it mentions specific events, names, companies, or numbers that do NOT appear in the research data. Tree-of-thought projections are fine ("if this continues, the pipeline breaks").
+        prompt = f"""You are an editor. Your ONLY job: scan this post for three kinds of problems.
+
+A separate classification pass already extracted each substantive claim in the post, its rhetorical TYPE, and the closest research statement supporting it (if any):
+{claims_block}
+
+1. UNSUPPORTED CLAIM — using the classification above (re-derive it yourself if it says "unavailable"), apply a DIFFERENT bar depending on post_type:
+
+   For Fact or Calculation claims (things presented as directly-reported information), flag it if:
+   - research_basis is NONE — the entities/numbers/events don't appear in the research at all
+   - it broadens the scope beyond what research_basis supports (e.g. research covers one company/segment, post generalizes to "the industry")
+
+   For Interpretation, Causal inference, Forecast, Recommendation, or Rhetorical framing claims — these are the post's OWN synthesis/argument built on top of the facts, and are NOT required to have a literal matching sentence in the research. A post that only restated research verbatim would have no argument at all. Flag one of these ONLY if:
+   - it invents a causal or mechanistic link between two facts the research only reports side-by-side or as correlated (e.g. research says "X launched" and separately "Y rose 15%"; post says "X caused Y to rise 15%" — the entities and number are real, but the causation is invented)
+   - it's phrased with the certainty of a settled Fact or universal law — no hedge at all ("may," "suggests," "looks like," "this could mean") — while research_type for the same underlying point is itself Interpretation/Forecast/NONE (a hedge got silently dropped, or a hedged interpretation got restated as an unhedged Rhetorical-framing maxim, e.g. research_type=Interpretation "infrastructure ownership may improve strategic control" → post_type=Rhetorical framing "Whoever controls the chips controls the margin": same idea, but the hedge is gone)
+   - it directly contradicts something the research states as fact
+   Genuinely hedged interpretation/causal-inference/forecast language is the expected shape of analysis — do NOT flag it just because it lacks a verbatim quote in research_basis. Only flag when it's stated with more confidence than the underlying support warrants.
 
 2. INCOHERENCE — the post should build ONE coherent argument around two angles that create tension with each other. Flag it as incoherent if it instead reads as a list of disconnected claims stitched together — e.g. jumping between unrelated topics (a technical breakthrough, then labor markets, then legal liability, then market consolidation) with no logical throughline connecting them, or drawing a conclusion that doesn't actually follow from the claim before it.
+
+3. SELF-CONTRADICTION — flag any pair of claims within the post that directly conflict with each other (e.g. "not replacing coders" and "stripping execution roles") when the post never reconciles the tension. Quote both conflicting passages.
 
 Style, tone, and formatting are NOT your concern. Only check factual accuracy and argumentative coherence.
 
@@ -415,9 +509,9 @@ Post to verify:
 {post_raw}
 
 Output ONLY a JSON object:
-{{"approved": true or false, "fabrications": ["exact fabricated passage 1", "exact fabricated passage 2"], "incoherence_issues": ["specific description of the logical gap or unrelated jump 1"]}}
+{{"approved": true or false, "unsupported_claims": ["exact passage — what the research actually supports vs. what the post asserts"], "incoherence_issues": ["specific description of the logical gap or unrelated jump 1"], "self_contradictions": ["passage A vs. passage B — how they conflict"]}}
 
-approved=true only if EVERY concrete claim traces back to the research AND the post reads as one coherent argument (fabrications=[] and incoherence_issues=[])."""
+approved=true only if EVERY claim's exact relationship (causal direction, scope, certainty, type) is directly supported by the research, no two claims in the post contradict each other unreconciled, AND the post reads as one coherent argument (unsupported_claims=[], incoherence_issues=[], self_contradictions=[])."""
 
         try:
             resp = client.chat.completions.create(
@@ -432,28 +526,16 @@ approved=true only if EVERY concrete claim traces back to the research AND the p
             approved = len(fix_list) == 0
             return _result(approved, fix_list)
 
-        raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
-        if raw.startswith("```"):
-            raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"):
-            raw = "\n".join(raw.split("\n")[:-1])
-        raw = raw.strip()
+        data = _parse_json_loose(raw, r"\{.*\}")
+        if data is None:
+            approved = len(fix_list) == 0
+            return _result(approved, fix_list)
 
-        try:
-            data = _json.loads(raw)
-        except _json.JSONDecodeError:
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            if match:
-                try:
-                    data = _json.loads(match.group(0))
-                except _json.JSONDecodeError:
-                    approved = len(fix_list) == 0
-                    return _result(approved, fix_list)
-            else:
-                approved = len(fix_list) == 0
-                return _result(approved, fix_list)
-
-        llm_fixes = data.get("fabrications", []) + data.get("incoherence_issues", [])
+        llm_fixes = (
+            data.get("unsupported_claims", [])
+            + data.get("incoherence_issues", [])
+            + data.get("self_contradictions", [])
+        )
         fix_list.extend(llm_fixes)
         llm_approved = data.get("approved", True)
         approved = llm_approved and len(fix_list) == 0
