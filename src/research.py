@@ -18,12 +18,6 @@ class VideoItem:
     description: str = ""
     source_subject: str = ""
 
-    def summary(self) -> str:
-        return (
-            f"YouTube: \"{self.title}\" by {self.channel} "
-            f"({self.views:,} views) — {self.url}"
-        )
-
 
 @dataclass
 class RedditItem:
@@ -32,13 +26,6 @@ class RedditItem:
     subreddit: str
     score: int
     num_comments: int
-    selftext: str = ""
-
-    def summary(self) -> str:
-        return (
-            f"Reddit r/{self.subreddit}: \"{self.title}\" "
-            f"({self.score} upvotes, {self.num_comments} comments) — {self.url}"
-        )
 
 
 @dataclass
@@ -48,12 +35,6 @@ class NewsItem:
     snippet: str
     source_subject: str = ""
 
-    def summary(self) -> str:
-        return (
-            f"Web [{self.source_subject}]: \"{self.title}\" — {self.snippet[:200]}... "
-            f"({self.url})"
-        )
-
 
 @dataclass
 class TwitterItem:
@@ -62,12 +43,6 @@ class TwitterItem:
     author: str
     likes: int
     retweets: int
-
-    def summary(self) -> str:
-        return (
-            f"X/Twitter: @{self.author}: \"{self.text[:120]}...\" "
-            f"({self.likes} likes, {self.retweets} RT) — {self.url}"
-        )
 
 
 @dataclass
@@ -183,12 +158,15 @@ def _fetch_youtube_channels(
 def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
     """Fetch top posts from Reddit via Playwright browser."""
     import time
+
     from playwright.sync_api import sync_playwright
 
     posts: list[RedditItem] = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        browser = p.chromium.launch(
+            headless=True, args=["--disable-blink-features=AutomationControlled"]
+        )
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
             viewport={"width": 1280, "height": 800},
@@ -213,14 +191,20 @@ def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
                         title_el = entry.locator("a.title").first
                         title = (title_el.text_content() or "").strip()
                         link = title_el.get_attribute("href") or ""
-                        score_str = (entry.get_attribute("data-score") or "0")
+                        score_str = entry.get_attribute("data-score") or "0"
                         score = int(score_str) if score_str.lstrip("-").isdigit() else 0
                         if title:
-                            posts.append(RedditItem(
-                                title=title,
-                                url=f"https://old.reddit.com{link}" if link.startswith("/") else link,
-                                subreddit=sub, score=score, num_comments=0,
-                            ))
+                            posts.append(
+                                RedditItem(
+                                    title=title,
+                                    url=f"https://old.reddit.com{link}"
+                                    if link.startswith("/")
+                                    else link,
+                                    subreddit=sub,
+                                    score=score,
+                                    num_comments=0,
+                                )
+                            )
                     except Exception:
                         continue
                 print(f"      r/{sub}: {min(len(entries), max_per)} posts")
@@ -229,6 +213,8 @@ def _fetch_reddit(subreddits: list[str], max_per: int) -> list[RedditItem]:
                 continue
         browser.close()
     return posts
+
+
 def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
     """Fetch recent tweets via Nitter RSS feeds. No API key, no browser."""
     import time
@@ -245,7 +231,9 @@ def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+                },
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = resp.read().decode("utf-8")
@@ -277,6 +265,7 @@ def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
 
             # Clean description HTML
             import re
+
             clean = re.sub(r"<[^>]+>", "", desc).strip()
             text = clean if clean else title
 
@@ -295,9 +284,7 @@ def _scrape_twitter(accounts: list[str], max_per: int) -> list[TwitterItem]:
     return items
 
 
-def _search_searxng(
-    subjects: list[str], max_per: int, base_url: str
-) -> list[NewsItem]:
+def _search_searxng(subjects: list[str], max_per: int, base_url: str) -> list[NewsItem]:
     """Search web via SearXNG for each subject. No API key required."""
     import time
     import urllib.parse
@@ -309,18 +296,22 @@ def _search_searxng(
         if i > 0:
             time.sleep(1.5)
 
-        params = urllib.parse.urlencode({
-            "q": subject,
-            "format": "json",
-            "categories": "news,general",
-            "language": "en",
-        })
+        params = urllib.parse.urlencode(
+            {
+                "q": subject,
+                "format": "json",
+                "categories": "news,general",
+                "language": "en",
+            }
+        )
         url = f"{base_url.rstrip('/')}?{params}"
 
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+                },
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -371,17 +362,120 @@ def run(
         from collections import Counter as _Counter
 
         stopwords = {
-            "the","a","an","is","in","to","of","and","for","on","with","it","this","that",
-            "how","what","why","i","you","we","be","are","vs","your","my","or","by","its",
-            "not","can","has","been","will","just","all","but","from","was","new","more",
-            "one","have","get","like","about","when","out","up","so","no","if","do","at",
-            "need","right","now","only","best","ever","here","going","happened","every",
-            "believe","these","those","they","them","their","into","over","after","before",
-            "still","also","way","back","make","made","making","use","using","used","think",
-            "know","see","say","said","really","actually","insane","wtf","try","watch",
+            "the",
+            "a",
+            "an",
+            "is",
+            "in",
+            "to",
+            "of",
+            "and",
+            "for",
+            "on",
+            "with",
+            "it",
+            "this",
+            "that",
+            "how",
+            "what",
+            "why",
+            "i",
+            "you",
+            "we",
+            "be",
+            "are",
+            "vs",
+            "your",
+            "my",
+            "or",
+            "by",
+            "its",
+            "not",
+            "can",
+            "has",
+            "been",
+            "will",
+            "just",
+            "all",
+            "but",
+            "from",
+            "was",
+            "new",
+            "more",
+            "one",
+            "have",
+            "get",
+            "like",
+            "about",
+            "when",
+            "out",
+            "up",
+            "so",
+            "no",
+            "if",
+            "do",
+            "at",
+            "need",
+            "right",
+            "now",
+            "only",
+            "best",
+            "ever",
+            "here",
+            "going",
+            "happened",
+            "every",
+            "believe",
+            "these",
+            "those",
+            "they",
+            "them",
+            "their",
+            "into",
+            "over",
+            "after",
+            "before",
+            "still",
+            "also",
+            "way",
+            "back",
+            "make",
+            "made",
+            "making",
+            "use",
+            "using",
+            "used",
+            "think",
+            "know",
+            "see",
+            "say",
+            "said",
+            "really",
+            "actually",
+            "insane",
+            "wtf",
+            "try",
+            "watch",
             # narrative/movie words that pollute non-AI YouTube results
-            "rise","fall","empire","india","create","largest","thing","since","episode",
-            "part","series","season","full","story","world","first","last","next","top",
+            "rise",
+            "fall",
+            "empire",
+            "india",
+            "create",
+            "largest",
+            "thing",
+            "since",
+            "episode",
+            "part",
+            "series",
+            "season",
+            "full",
+            "story",
+            "world",
+            "first",
+            "last",
+            "next",
+            "top",
         }
 
         # Extract per channel
@@ -398,22 +492,28 @@ def run(
                         word_counts[w] += 1
 
             # Take top 3 per channel as auto-subjects
-            chan_subjects = [w for w, _ in word_counts.most_common(3) if w not in subjects]
+            chan_subjects = [
+                w for w, _ in word_counts.most_common(3) if w not in subjects
+            ]
             if chan_subjects:
                 print(f"      Auto-subjects from {channel_url}: {chan_subjects}")
                 subjects = list(subjects) + chan_subjects
 
             # Build channel insights: top videos with their own subject tags
-            chan_name = channel_url.rsplit("/", 1)[-1] if "/" in channel_url else channel_url
+            chan_name = (
+                channel_url.rsplit("/", 1)[-1] if "/" in channel_url else channel_url
+            )
             top_ids = ", ".join(f"{v.title} ({v.views:,} views)" for v in chan_vids[:5])
             # Determine best topic tag for this channel (use highest-count word that overlaps with video titles)
             topic_tag = chan_subjects[0] if chan_subjects else chan_name
-            channel_insights.append({
-                "channel": chan_name,
-                "topic_tag": topic_tag,
-                "videos": top_ids,
-                "count": len(chan_vids),
-            })
+            channel_insights.append(
+                {
+                    "channel": chan_name,
+                    "topic_tag": topic_tag,
+                    "videos": top_ids,
+                    "count": len(chan_vids),
+                }
+            )
             # Retro-tag channel videos with their topic so they show up under a real subject
             for v in chan_vids:
                 v.source_subject = topic_tag
@@ -447,7 +547,7 @@ def run(
         twitter_posts = _scrape_twitter(tw_accounts, tw_max)
 
     return ResearchResult(
-        videos=unique_videos[:max_videos * len(subjects) * 2],
+        videos=unique_videos[: max_videos * len(subjects) * 2],
         reddit_posts=_fetch_reddit(subreddits, max_reddit),
         twitter_posts=twitter_posts,
         news_items=news_items,

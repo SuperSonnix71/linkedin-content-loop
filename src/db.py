@@ -40,13 +40,9 @@ def initialize() -> None:
         conn = _connect(dbname_override="postgres")
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute(
-            "SELECT 1 FROM pg_database WHERE datname = %s", (target_db,)
-        )
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
         if not cur.fetchone():
-            cur.execute(
-                sql.SQL("CREATE DATABASE {}").format(sql.Identifier(target_db))
-            )
+            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(target_db)))
             print(f"[DB] Created database '{target_db}'")
         cur.close()
         conn.close()
@@ -73,7 +69,9 @@ def initialize() -> None:
             )
         """)
         try:
-            cur.execute("ALTER TABLE posts ADD COLUMN IF NOT EXISTS selection_mode TEXT DEFAULT 'insight'")
+            cur.execute(
+                "ALTER TABLE posts ADD COLUMN IF NOT EXISTS selection_mode TEXT DEFAULT 'insight'"
+            )
         except Exception:
             pass
         conn.commit()
@@ -89,7 +87,13 @@ def initialize() -> None:
                 pass
 
 
-def log_post(subject: str, title: str = "", content: str = "", hashtags: str = "", selection_mode: str = "insight") -> None:
+def log_post(
+    subject: str,
+    title: str = "",
+    content: str = "",
+    hashtags: str = "",
+    selection_mode: str = "insight",
+) -> None:
     """Record a posted LinkedIn post."""
     conn = None
     try:
@@ -128,30 +132,6 @@ def get_recent_subjects(days: int = 7) -> list[str]:
         return subjects
     except Exception as e:
         print(f"[DB] Failed to query recent subjects: {e}")
-        return []
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
-
-
-def get_recent_posts(limit: int = 5) -> list[dict]:
-    """Get the most recent posts for context (what was already written about)."""
-    conn = None
-    try:
-        conn = _connect()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(
-            "SELECT subject, title, content, created_at FROM posts WHERE posted = TRUE ORDER BY created_at DESC LIMIT %s",
-            (limit,),
-        )
-        posts = [dict(row) for row in cur.fetchall()]
-        cur.close()
-        return posts
-    except Exception as e:
-        print(f"[DB] Failed to query recent posts: {e}")
         return []
     finally:
         if conn:

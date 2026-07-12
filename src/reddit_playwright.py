@@ -2,10 +2,11 @@
 Reddit research via Playwright stealth browser — no API, no auth.
 Scrapes old.reddit.com top posts from each subreddit.
 """
+
 import time
-import re
+from dataclasses import dataclass
+
 from playwright.sync_api import sync_playwright
-from dataclasses import dataclass, field
 
 
 @dataclass
@@ -17,7 +18,9 @@ class RedditPost:
     subreddit: str = ""
 
 
-def fetch_reddit_playwright(subreddits: list[str], max_per: int = 5) -> list[RedditPost]:
+def fetch_reddit_playwright(
+    subreddits: list[str], max_per: int = 5
+) -> list[RedditPost]:
     """Fetch top posts from Reddit subreddits using Playwright browser."""
     posts: list[RedditPost] = []
 
@@ -53,20 +56,24 @@ def fetch_reddit_playwright(subreddits: list[str], max_per: int = 5) -> list[Red
                         title_el = entry.locator("a.title").first
                         title = (title_el.text_content() or "").strip()
                         link = title_el.get_attribute("href") or ""
-                        score_str = (entry.get_attribute("data-score") or "0")
+                        score_str = entry.get_attribute("data-score") or "0"
                         score = int(score_str) if score_str.lstrip("-").isdigit() else 0
                         comments_el = entry.locator("a.comments").first
                         comments_str = (comments_el.text_content() or "0").split()[0]
                         comments = int(comments_str) if comments_str.isdigit() else 0
 
                         if title:
-                            posts.append(RedditPost(
-                                title=title,
-                                url=f"https://old.reddit.com{link}" if link.startswith("/") else link,
-                                score=score,
-                                comments=comments,
-                                subreddit=sub,
-                            ))
+                            posts.append(
+                                RedditPost(
+                                    title=title,
+                                    url=f"https://old.reddit.com{link}"
+                                    if link.startswith("/")
+                                    else link,
+                                    score=score,
+                                    comments=comments,
+                                    subreddit=sub,
+                                )
+                            )
                     except Exception:
                         continue
 
@@ -81,9 +88,19 @@ def fetch_reddit_playwright(subreddits: list[str], max_per: int = 5) -> list[Red
 
 
 if __name__ == "__main__":
-    subreddits = ["ClaudeAI", "LocalLLaMA", "artificial", "MachineLearning",
-                  "OpenAI", "opensource", "AIethics", "singularity",
-                  "AIMemory", "LLMDevs", "GithubCopilot"]
+    subreddits = [
+        "ClaudeAI",
+        "LocalLLaMA",
+        "artificial",
+        "MachineLearning",
+        "OpenAI",
+        "opensource",
+        "AIethics",
+        "singularity",
+        "AIMemory",
+        "LLMDevs",
+        "GithubCopilot",
+    ]
     results = fetch_reddit_playwright(subreddits)
     print(f"\nTotal: {len(results)} posts")
     for p in results[:10]:

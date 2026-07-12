@@ -7,6 +7,7 @@ Each node has ONE focused job. State passes as typed JSON between nodes.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import TypedDict
 
@@ -19,38 +20,52 @@ class PipelineState(TypedDict):
     """Shared state flowing through all pipeline nodes."""
 
     # Input from main.py
-    research_data: str          # serialized research: YouTube + Reddit + Web + channels
-    skip_subjects: list[str]    # subjects to avoid (from DB)
-    selection_mode: str         # "insight" or "volume"
+    research_data: str  # serialized research: YouTube + Reddit + Web + channels
+    skip_subjects: list[str]  # subjects to avoid (from DB)
+    selection_mode: str  # "insight" or "volume"
     configured_subjects: list[str]  # all configured subjects from config.yaml
+    content_config: dict  # tone, style, language, custom_instructions from config.yaml
 
     # Analyzer output
-    candidates: list[dict]      # [{subject, reason, relative_subject}]
+    candidates: list[dict]  # [{subject, reason, relevant_subject}]
 
     # Thinker output
-    subject: str                # chosen subject
-    chains: dict                # {positive_chain, negative_chain, verdict}
-    relative_subject: str       # clean subject name for DB/URL matching
+    subject: str  # chosen subject
+    chains: dict  # {positive_chain, negative_chain, verdict}
+    relevant_subject: str  # clean subject name for DB/URL matching
 
     # Writer output
-    post_raw: str               # unvalidated post text
-    title: str                  # chosen title
-    hashtags_raw: str           # space-separated #tags
+    post_raw: str  # unvalidated post text
+    title: str  # chosen title
+    hashtags_raw: str  # space-separated #tags
 
     # Judge output
-    approved: bool              # did the judge approve?
-    fixes: list[str]            # specific fix instructions if rejected
-
-    # Final output
-    post_final: str             # validated, formatted post ready to publish
-    retry_count: int            # number of judge→writer retries
+    approved: bool  # did the judge approve?
+    fixes: list[str]  # specific fix instructions if rejected
+    retry_count: int  # number of judge→writer retries
 
 
 # --- Node stubs (filled in Tasks 3-6) ---
 
+_SELECTION_RULES = {
+    "volume": (
+        "Pick candidates by research volume — most videos, most views, most Reddit "
+        "activity. This is data-driven. Never pick a skipped subject."
+    ),
+    "insight": (
+        "Mine Reddit for the most interesting angle. Look at what real people are "
+        "discussing with real engagement — hot takes, concerns, breakthroughs. A "
+        "5000-upvote Reddit thread often reveals more interesting angles than 50M "
+        "YouTube views. Find the discussion with the deepest tension between positive "
+        "and negative impact. Never pick a skipped subject."
+    ),
+}
+
 _ANALYZER_PROMPT = """You are a research analyst. Your ONLY job is to pick the 3 most interesting candidate subjects from the research data below.
 
-Look at Reddit for what real people are discussing with real engagement. A 5000-upvote Reddit thread reveals more interesting angles than 50M YouTube views. Look for deep tension between positive and negative impact.
+{selection_rule}
+
+List "candidates" in order from most interesting (best) to least interesting — the first entry in the list must be your top pick.
 
 SKIP these subjects (exact or overlapping): {skip_subjects}
 
@@ -62,14 +77,18 @@ Research data:
 
 
 def analyzer_node(state: PipelineState) -> dict:
-    """Pick top 3 candidate subjects from research data."""
+    """Pick top 3 candidate subjects from research data, ranked best-first."""
     import json as _json
 
     client = get_client()
     model = get_model()
 
     skip_str = ", ".join(state.get("skip_subjects", [])) or "(none)"
+    selection_rule = _SELECTION_RULES.get(
+        state.get("selection_mode", "insight"), _SELECTION_RULES["insight"]
+    )
     prompt = _ANALYZER_PROMPT.format(
+        selection_rule=selection_rule,
         skip_subjects=skip_str,
         research_data=state["research_data"],
     )
@@ -134,6 +153,8 @@ Example angles: economic impact, power consolidation, workforce/labor, security/
 
 Each chain must be logical consequences of the previous link. Do NOT fabricate — only use what's in the research. Pure logical projection from facts is fine.
 
+After exploring, choose exactly TWO angles for the final post: the single strongest angle, plus one that creates real tension or contrast with it (a counterpoint, a complication, an opposing force). These two chains are the ONLY ones that will reach the writer — do not pick two angles that just restate each other.
+
 Subject: {subject}
 Reason this is interesting: {reason}
 
@@ -141,7 +162,7 @@ Research context:
 {research_data}
 
 Output ONLY a JSON object:
-{{"subject": "the chosen subject name", "relevant_subject": "closest configured subject", "chains": [{{"angle": "short angle name", "chain": ["level 1", "level 2", ...], "verdict": "this angle's dominant outcome and why"}}]}}"""
+{{"subject": "the chosen subject name", "relevant_subject": "closest configured subject", "chains": [{{"angle": "short angle name", "chain": ["level 1", "level 2", ...], "verdict": "this angle's dominant outcome and why"}}], "chosen_angles": ["angle name 1", "angle name 2 — the contrasting one"]}}"""
 
 
 def thinker_node(state: PipelineState) -> dict:
@@ -205,15 +226,34 @@ def thinker_node(state: PipelineState) -> dict:
         for c in chains_list:
             chain = c.get("chain", [])
             print(f"        {c.get('angle', '?')}: {len(chain)} levels")
+
+    # Narrow to the two angles the Thinker itself picked, so the Writer physically
+    # cannot blend in the other explored angles — passing all 4-6 chains downstream
+    # was why posts read as a scattershot list of unrelated claims instead of one
+    # coherent argument.
+    chosen_angles = data.get("chosen_angles", [])
+    selected = chains_list
+    if isinstance(chosen_angles, list) and chosen_angles:
+        chosen_lower = {a.lower() for a in chosen_angles if isinstance(a, str)}
+        matched = [
+            c
+            for c in chains_list
+            if isinstance(c, dict) and c.get("angle", "").lower() in chosen_lower
+        ]
+        if matched:
+            selected = matched
+    selected = selected[:2] if selected else chains_list[:2]
+    print(f"      Thinker: writing with {[c.get('angle', '?') for c in selected]}")
+
     return {
         "subject": data.get("subject", subject),
-        "chains": data,  # pass the full response for the Writer
+        "chains": {
+            **data,
+            "chains": selected,
+        },  # only the chosen angle(s) reach the Writer
         "relevant_subject": data.get("relevant_subject", relevant),
     }
 
-
-    """Write the LinkedIn post using the Thinker's chains."""
-    import json as _json
 
 def writer_node(state: PipelineState) -> dict:
     """Write the LinkedIn post using the Thinker's chains."""
@@ -222,6 +262,7 @@ def writer_node(state: PipelineState) -> dict:
     chains_data = state.get("chains", {})
     research_data = state.get("research_data", "")
     fixes = state.get("fixes", [])
+    content_config = state.get("content_config") or {}
 
     if not chains_data:
         return {"post_raw": "", "title": "", "hashtags_raw": ""}
@@ -232,7 +273,14 @@ def writer_node(state: PipelineState) -> dict:
     # Format chains and research for the Writer
     chains_json = _json.dumps(chains_data, indent=2)
 
+    tone = content_config.get("tone", "direct and conversational")
+    style = content_config.get("style", "personal and raw")
+    language = content_config.get("language", "English")
+    custom = content_config.get("custom_instructions", "")
+
     prompt = f"""You write LinkedIn posts. Your ONLY job: take this strategic analysis and turn it into a post.
+
+{custom}
 
 Analysis (from the Thinker):
 {chains_json}
@@ -241,8 +289,8 @@ Research context:
 {research_data}
 
 WRITING RULES:
-- Title in **bold** as first line (≤120 chars). Pick 2-3 most important angles — not all of them.
-- Show the most interesting angles, the tension between them, and a clear verdict.
+- Title in **bold** as first line (≤120 chars).
+- You've been given exactly two angles above, chosen because they create tension with each other. Weave them into ONE coherent argument with a clear throughline — do not treat them as separate sections, and do not introduce a third angle.
 - Write like you're texting a smart friend. Short sentences. Fragments. Contractions.
 - No \"The [noun] is [adjective]\" openers. No \"However\", \"Furthermore\". No transitions.
 - No hyperbole. No apocalyptic language. No fabricated anecdotes. Every concrete claim must trace to research.
@@ -252,6 +300,7 @@ WRITING RULES:
 - End with a strong thought, not engagement bait.
 - Include 5-6 hashtags at the end. At least one link from the research on its own line before hashtags.
 - Length: 1200-1800 chars. No emojis, no dashes, no name-drops.
+- Tone: {tone}. Style: {style}. Language: {language}.
 
 {"Fix these issues: " + "; ".join(fixes) if fixes else ""}
 
@@ -297,11 +346,20 @@ The post field MUST start with the title in **bold** as its very first line. No 
     post = data.get("post", "")
     hashtags = data.get("hashtags", "")
 
-    # Ensure title is the first line of the post
-    if title and post and not post.strip().startswith(title[:30]):
-        post = "**" + title.strip(" *") + "**\n\n" + post
+    # Ensure title is the first line of the post. Compare with markdown/whitespace
+    # stripped from both sides so paraphrasing or a missing "**" doesn't trip a
+    # false negative (title[:30] truncation was prone to that).
+    def _normalize(text: str) -> str:
+        return re.sub(r"[\s*]+", " ", text).strip().lower()
 
-    print(f"      Writer: {len(post) if post else 0} chars, {len(hashtags.split()) if hashtags else 0} tags")
+    if title and post:
+        first_line = post.strip().split("\n", 1)[0]
+        if not _normalize(first_line).startswith(_normalize(title)[:40]):
+            post = "**" + title.strip(" *") + "**\n\n" + post
+
+    print(
+        f"      Writer: {len(post) if post else 0} chars, {len(hashtags.split()) if hashtags else 0} tags"
+    )
     return {"post_raw": post, "title": title, "hashtags_raw": hashtags}
 
 
@@ -312,8 +370,20 @@ def judge_node(state: PipelineState) -> dict:
     post_raw = state.get("post_raw", "")
     research_data = state.get("research_data", "")
 
+    # retry_count is bumped here (inside a node) rather than in the should_retry
+    # router: LangGraph only persists state updates returned from nodes, so a
+    # mutation made inside a conditional-edge function is silently discarded.
+    def _result(approved: bool, fixes: list[str]) -> dict:
+        retry_count = state.get("retry_count", 0)
+        if not approved:
+            retry_count += 1
+        return {"approved": approved, "fixes": fixes, "retry_count": retry_count}
+
     if not post_raw:
-        return {"approved": True, "fixes": []}
+        # An empty post means the Writer failed (API error, JSON parse failure,
+        # or missing chains) — that's a rejection to retry, not an approval.
+        print("      Judge: REJECTED — empty post from Writer")
+        return _result(False, ["Writer produced an empty post — try again."])
 
     # Code-level check: any URL in the post that isn't in the research is FABRICATED
     fix_list = []
@@ -321,18 +391,22 @@ def judge_node(state: PipelineState) -> dict:
     for url in urls_in_post:
         clean_url = url.rstrip(".,;:!?")
         if clean_url not in research_data:
-            fix_list.append(f"FABRICATED URL: {clean_url} — does not exist in research. Remove or replace with a real URL from research.")
+            fix_list.append(
+                f"FABRICATED URL: {clean_url} — does not exist in research. Remove or replace with a real URL from research."
+            )
 
     # LLM-level check: verify concrete claims against research
     if research_data:
         client = get_client()
         model = get_model()
 
-        prompt = f"""You are a fact-checker. Your ONLY job: scan this post and flag any VERIFIABLY fabricated claims.
+        prompt = f"""You are an editor. Your ONLY job: scan this post for two kinds of problems.
 
-A claim is fabricated if it mentions specific events, names, companies, or numbers that do NOT appear in the research data.
-Tree-of-thought projections are fine ("if this continues, the pipeline breaks").
-Style issues, tone, and formatting are NOT your concern. Only check factual accuracy.
+1. FABRICATION — a claim is fabricated if it mentions specific events, names, companies, or numbers that do NOT appear in the research data. Tree-of-thought projections are fine ("if this continues, the pipeline breaks").
+
+2. INCOHERENCE — the post should build ONE coherent argument around two angles that create tension with each other. Flag it as incoherent if it instead reads as a list of disconnected claims stitched together — e.g. jumping between unrelated topics (a technical breakthrough, then labor markets, then legal liability, then market consolidation) with no logical throughline connecting them, or drawing a conclusion that doesn't actually follow from the claim before it.
+
+Style, tone, and formatting are NOT your concern. Only check factual accuracy and argumentative coherence.
 
 Research data:
 {research_data}
@@ -341,9 +415,9 @@ Post to verify:
 {post_raw}
 
 Output ONLY a JSON object:
-{{"approved": true or false, "fabrications": ["exact fabricated passage 1", "exact fabricated passage 2"]}}
+{{"approved": true or false, "fabrications": ["exact fabricated passage 1", "exact fabricated passage 2"], "incoherence_issues": ["specific description of the logical gap or unrelated jump 1"]}}
 
-If EVERY concrete claim traces back to something in the research, approved=true and fabrications=[]."""
+approved=true only if EVERY concrete claim traces back to the research AND the post reads as one coherent argument (fabrications=[] and incoherence_issues=[])."""
 
         try:
             resp = client.chat.completions.create(
@@ -356,7 +430,7 @@ If EVERY concrete claim traces back to something in the research, approved=true 
             print(f"      Judge LLM call failed: {e}")
             # Fall back to URL-only check
             approved = len(fix_list) == 0
-            return {"approved": approved, "fixes": fix_list}
+            return _result(approved, fix_list)
 
         raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
         if raw.startswith("```"):
@@ -374,12 +448,12 @@ If EVERY concrete claim traces back to something in the research, approved=true 
                     data = _json.loads(match.group(0))
                 except _json.JSONDecodeError:
                     approved = len(fix_list) == 0
-                    return {"approved": approved, "fixes": fix_list}
+                    return _result(approved, fix_list)
             else:
                 approved = len(fix_list) == 0
-                return {"approved": approved, "fixes": fix_list}
+                return _result(approved, fix_list)
 
-        llm_fixes = data.get("fabrications", [])
+        llm_fixes = data.get("fabrications", []) + data.get("incoherence_issues", [])
         fix_list.extend(llm_fixes)
         llm_approved = data.get("approved", True)
         approved = llm_approved and len(fix_list) == 0
@@ -393,16 +467,21 @@ If EVERY concrete claim traces back to something in the research, approved=true 
     else:
         print("      Judge: APPROVED")
 
-    return {"approved": approved, "fixes": fix_list}
+    return _result(approved, fix_list)
 
 
 def should_retry(state: PipelineState) -> str:
-    """Decision: loop back to writer if judge rejected and retry count < max."""
+    """Decision: loop back to writer if judge rejected and retry count <= max.
+
+    retry_count is incremented by judge_node itself (a real node, so the update
+    persists) the moment a rejection happens, so by the time we get here it
+    already reflects how many rejections have occurred so far. Reading it here
+    is purely a routing decision — this function must NOT mutate state.
+    """
     max_retries = 2
     approved = state.get("approved", True)
     retries = state.get("retry_count", 0)
-    if not approved and retries < max_retries:
-        state["retry_count"] = retries + 1
+    if not approved and retries <= max_retries:
         return "writer"
     return "end"
 
@@ -447,6 +526,7 @@ def run_pipeline(initial_state: dict) -> dict:
 
 # ─── Public API (matches old generate.py interface) ────────────────────────
 
+
 def generate_post(
     youtube_videos: list,
     reddit_posts: list,
@@ -463,16 +543,41 @@ def generate_post(
     Generate a LinkedIn post using the LangGraph pipeline.
     Returns (post_text, chosen_subject) — same signature as old generate().
     """
+    # Resolved AI client config (env vars still win — ai_config already encodes
+    # that precedence per main.py) — only the *values*, so the cached client
+    # picks them up on first use without needing get_client()/get_model() to
+    # take arguments.
+    if ai_config:
+        if ai_config.get("base_url"):
+            os.environ["AI_BASE_URL"] = ai_config["base_url"]
+        if ai_config.get("api_key"):
+            os.environ["AI_API_KEY"] = ai_config["api_key"]
+        if ai_config.get("model"):
+            os.environ["AI_MODEL"] = ai_config["model"]
+
     # Build research data string
     parts = []
     for v in youtube_videos[:20]:
-        parts.append(f"YT [{getattr(v, 'source_subject', '')}]: {v.title} ({v.views} views)")
+        parts.append(
+            f"YT [{getattr(v, 'source_subject', '')}]: {v.title} ({v.views} views)"
+        )
     for p in reddit_posts[:20]:
-        parts.append(f"Reddit r/{getattr(p, 'subreddit', '')} ({getattr(p, 'score', 0)} upvotes): {getattr(p, 'title', '')}")
+        parts.append(
+            f"Reddit r/{getattr(p, 'subreddit', '')} ({getattr(p, 'score', 0)} upvotes): {getattr(p, 'title', '')}"
+        )
     for t in twitter_posts[:10]:
-        parts.append(f"Twitter @{getattr(t, 'account', '')}: {getattr(t, 'text', '')[:200]}")
+        parts.append(
+            f"Twitter @{getattr(t, 'author', '')}: {getattr(t, 'text', '')[:200]}"
+        )
     for n in news_items[:20]:
-        parts.append(f"Web [{getattr(n, 'source_subject', '')}]: {getattr(n, 'title', '')} — {getattr(n, 'snippet', '')[:100]} ({getattr(n, 'url', '')})")
+        parts.append(
+            f"Web [{getattr(n, 'source_subject', '')}]: {getattr(n, 'title', '')} — {getattr(n, 'snippet', '')[:100]} ({getattr(n, 'url', '')})"
+        )
+    for ci in channel_insights or []:
+        parts.append(
+            f"Channel {ci.get('channel', '')} [{ci.get('topic_tag', '')}] "
+            f"({ci.get('count', 0)} videos): {ci.get('videos', '')}"
+        )
     research_data = "\n".join(parts)
 
     state = {
@@ -480,6 +585,7 @@ def generate_post(
         "skip_subjects": skip_subjects or [],
         "selection_mode": selection_mode,
         "configured_subjects": subjects,
+        "content_config": content_config or {},
         "candidates": [],
         "chains": {},
         "post_raw": "",
@@ -490,7 +596,6 @@ def generate_post(
         "retry_count": 0,
         "subject": "",
         "relevant_subject": "",
-        "post_final": "",
     }
 
     # Run the pipeline
@@ -504,37 +609,80 @@ def generate_post(
     relevant_subject = final.get("relevant_subject", "")
     hashtags_raw = final.get("hashtags_raw", "")
 
+    # If the Judge never approved the post even after exhausting retries,
+    # do not publish it — a flagged (possibly fabricated) post is worse than
+    # no post at all.
+    if post_raw and not final.get("approved", True):
+        print("[!] Judge did not approve the post after max retries — discarding.")
+        return "", ""
+
     # Apply formatting (Unicode bold/italic) — same as old _format_for_linkedin
     from src.generate import _format_for_linkedin
+
     post_formatted = _format_for_linkedin(post_raw)
 
     # Inject hashtags if missing
     if "#" not in post_formatted and hashtags_raw:
         post_formatted = post_formatted.rstrip() + "\n\n" + hashtags_raw.strip()
 
-    # Link validation: only keep URLs from actual research
+    # Link validation: only keep URLs from actual research.
+    # NOTE: word-overlap must be computed from the *raw* (pre-Unicode-bold/
+    # italic) text — _to_unicode_bold/_to_unicode_italic map ASCII letters to
+    # Mathematical Alphanumeric Symbols, which `[a-z]` and `.lower()` don't
+    # recognize at all, so matching against post_formatted silently drops
+    # every bolded/italicized word from the overlap count.
     if news_items:
+        chosen_lower = (relevant_subject or "").lower()
+        relevant_subjects = {
+            s.lower()
+            for s in subjects
+            if s.lower() in chosen_lower or chosen_lower in s.lower()
+        }
+        if not relevant_subjects:
+            relevant_subjects = {s.lower() for s in subjects}
+
         fetched_urls = {n.url for n in news_items if n.url}
-        post_words = set(re.findall(r"[a-z]{4,}", post_formatted.lower()))
+        post_words = set(re.findall(r"[a-z]{4,}", post_raw.lower()))
         post_words -= {"that", "this", "with", "from", "have", "they", "will"}
         valid_urls = set()
         for n in news_items:
             if not n.url or n.url not in fetched_urls:
                 continue
-            article_words = set(re.findall(r"[a-z]{4,}", (n.title + " " + n.snippet).lower()))
+            article_words = set(
+                re.findall(r"[a-z]{4,}", (n.title + " " + n.snippet).lower())
+            )
             overlap = post_words & article_words
-            if len(overlap) >= 3:
+            # High overlap alone is enough (cross-cutting article); moderate
+            # overlap needs subject agreement too, matching the old generate().
+            if len(overlap) >= 5 or (
+                len(overlap) >= 3
+                and getattr(n, "source_subject", "").lower() in relevant_subjects
+            ):
                 valid_urls.add(n.url)
+
         url_pattern = re.compile(r'https?://[^\s<>"\']+')
         lines = post_formatted.split("\n")
         filtered_lines = []
         for line in lines:
             urls_in_line = url_pattern.findall(line)
             if urls_in_line:
+
                 def _replace_url(m):
                     url = m.group(0).rstrip(".,")
                     return url if url in valid_urls else ""
-                line = url_pattern.sub(_replace_url, line)
+
+                new_line = url_pattern.sub(_replace_url, line)
+                stripped = new_line.strip()
+                # If every URL on the line got stripped and what's left is just
+                # a dangling reference ("Check this out:"), drop the line
+                # entirely instead of leaving an orphaned sentence.
+                if not url_pattern.search(new_line) and (
+                    (len(stripped) < 60 and stripped.rstrip(".").endswith(":"))
+                    or stripped.lower().rstrip(".")
+                    in {"link", "source", "reference", "here"}
+                ):
+                    continue
+                line = new_line
             filtered_lines.append(line)
         post_formatted = "\n".join(filtered_lines)
 
